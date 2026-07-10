@@ -178,3 +178,28 @@ export const clubJoinSchema = {
     reason: Joi.string().trim().max(1500).required()
   }).required()
 };
+
+export const freePublishingSchema = {
+  body: Joi.object({
+    name: Joi.string().trim().max(120).required(),
+    phone: Joi.string().trim().pattern(/^[0-9]+$/).min(8).max(20).required().messages({
+      "string.pattern.base": "Phone number must contain only numbers."
+    }),
+    email: emailSchema,
+    bookAbout: Joi.string().trim().max(3000).required(),
+    manuscriptReady: Joi.string().valid("Yes", "No").required()
+  }).required()
+};
+
+export const selfPublishingPlanSchema = {
+  body: Joi.object({
+    planName: Joi.string().trim().valid("Basic", "Essential", "Popular").required(),
+    name: Joi.string().trim().max(120).required(),
+    phone: Joi.string().trim().pattern(/^[0-9]+$/).min(10).max(20).required().messages({
+      "string.pattern.base": "Phone number must contain only numbers."
+    }),
+    email: emailSchema,
+    bookAbout: Joi.string().trim().max(2500).allow(""),
+    note: Joi.string().trim().max(1500).allow("")
+  }).required()
+};

@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import https from "https";
+import fs from "fs";
 import { env } from "../config/env.js";
 
 let transport;
@@ -22,14 +23,15 @@ function getTransport() {
   return transport;
 }
 
-export function sendEmailViaResend({ to, subject, html, text }) {
+export function sendEmailViaResend({ to, subject, html, text, attachments }) {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify({
       from: env.smtp.from || "LEKHAK <no-reply@lekhoktripura.in>",
       to,
       subject,
       html,
-      text
+      text,
+      ...(attachments?.length ? { attachments } : {})
     });
 
     const options = {
@@ -286,3 +288,139 @@ export async function sendClubApplicationEmail(application) {
   return info;
 }
 
+
+export async function sendFreePublishingEmail(application) {
+  const recipients = env.adminEmails;
+  if (!recipients.length) {
+    console.warn("[Email] Free publishing email skipped: ADMIN_EMAILS is not configured.");
+    return { skipped: true };
+  }
+
+  const manuscript = application.manuscript;
+  const subject = `New free sponsored publishing request - ${application.name}`;
+  const htmlContent = `
+    <div style="font-family:Inter,Arial,sans-serif;background:#050505;color:#ffffff;padding:28px;border-radius:18px;max-width:760px">
+      <p style="letter-spacing:0.24em;text-transform:uppercase;color:#67e8f9;font-size:12px;margin:0 0 10px">LEKHAK sponsored publishing</p>
+      <h1 style="font-size:28px;margin:0 0 8px;color:#ffffff">New Free Sponsored Publishing Application</h1>
+      <p style="color:#a1a1aa;margin:0 0 24px">A financially challenged writer submitted the sponsorship publishing form. Manuscript PDF is attached.</p>
+      <table style="width:100%;border-collapse:collapse;background:#0d0d0d;border:1px solid #1f2937;border-radius:14px;overflow:hidden">
+        ${detailRow("Name", application.name)}
+        ${detailRow("Phone", application.phone)}
+        ${detailRow("Email", application.email)}
+        ${detailRow("Book is about", application.bookAbout)}
+        ${detailRow("Manuscript Ready", application.manuscriptReady)}
+        ${detailRow("Uploaded File", manuscript?.originalname)}
+      </table>
+    </div>
+  `;
+
+  const textContent = [
+    "New free sponsored publishing application",
+    `Name: ${application.name}`,
+    `Phone: ${application.phone}`,
+    `Email: ${application.email}`,
+    `Book is about: ${application.bookAbout}`,
+    `Manuscript Ready: ${application.manuscriptReady}`,
+    `Uploaded File: ${manuscript?.originalname || "-"}`
+  ].join("\n");
+
+  const resendAttachments = manuscript?.path ? [{
+    filename: manuscript.originalname || "manuscript.pdf",
+    content: fs.readFileSync(manuscript.path).toString("base64")
+  }] : [];
+
+  const smtpAttachments = manuscript?.path ? [{
+    filename: manuscript.originalname || "manuscript.pdf",
+    path: manuscript.path,
+    contentType: "application/pdf"
+  }] : [];
+
+  if (env.resendApiKey) {
+    try {
+      console.log("[Email] Sending free sponsored publishing application to admins via Resend...");
+      return await sendEmailViaResend({
+        to: recipients,
+        subject,
+        html: htmlContent,
+        text: textContent,
+        attachments: resendAttachments
+      });
+    } catch (error) {
+      console.error("[Email] Failed to send free sponsored publishing application via Resend:", error);
+    }
+  }
+
+  const info = await getTransport().sendMail({
+    from: env.smtp.from || "LEKHAK <no-reply@lekhoktripura.in>",
+    to: recipients,
+    subject,
+    html: htmlContent,
+    text: textContent,
+    attachments: smtpAttachments
+  });
+
+  if (env.nodeEnv !== "production" && info.message) {
+    console.log("Free sponsored publishing email preview (SMTP Fallback):", info.message.toString());
+  }
+
+  return info;
+}
+
+
+export async function sendSelfPublishingPlanEmail(application) {
+  const recipients = env.adminEmails;
+  if (!recipients.length) {
+    console.warn("[Email] Self publishing plan email skipped: ADMIN_EMAILS is not configured.");
+    return { skipped: true };
+  }
+
+  const subject = `New self publishing plan inquiry - ${application.planName}`;
+  const htmlContent = `
+    <div style="font-family:Inter,Arial,sans-serif;background:#050505;color:#ffffff;padding:28px;border-radius:18px;max-width:760px">
+      <p style="letter-spacing:0.24em;text-transform:uppercase;color:#67e8f9;font-size:12px;margin:0 0 10px">LEKHAK self publishing</p>
+      <h1 style="font-size:28px;margin:0 0 8px;color:#ffffff">New Self Publishing Plan Inquiry</h1>
+      <p style="color:#a1a1aa;margin:0 0 24px">An author selected a paid self publishing plan.</p>
+      <table style="width:100%;border-collapse:collapse;background:#0d0d0d;border:1px solid #1f2937;border-radius:14px;overflow:hidden">
+        ${detailRow("Selected Plan", application.planName)}
+        ${detailRow("Name", application.name)}
+        ${detailRow("Phone", application.phone)}
+        ${detailRow("Email", application.email)}
+        ${detailRow("Book is about", application.bookAbout)}
+        ${detailRow("Note", application.note)}
+      </table>
+    </div>
+  `;
+
+  const textContent = [
+    "New self publishing plan inquiry",
+    `Selected Plan: ${application.planName}`,
+    `Name: ${application.name}`,
+    `Phone: ${application.phone}`,
+    `Email: ${application.email}`,
+    `Book is about: ${application.bookAbout || "-"}`,
+    `Note: ${application.note || "-"}`
+  ].join("\n");
+
+  if (env.resendApiKey) {
+    try {
+      console.log("[Email] Sending self publishing plan inquiry to admins via Resend...");
+      return await sendEmailViaResend({ to: recipients, subject, html: htmlContent, text: textContent });
+    } catch (error) {
+      console.error("[Email] Failed to send self publishing plan inquiry via Resend:", error);
+    }
+  }
+
+  const info = await getTransport().sendMail({
+    from: env.smtp.from || "LEKHAK <no-reply@lekhoktripura.in>",
+    to: recipients,
+    subject,
+    html: htmlContent,
+    text: textContent
+  });
+
+  if (env.nodeEnv !== "production" && info.message) {
+    console.log("Self publishing plan email preview (SMTP Fallback):", info.message.toString());
+  }
+
+  return info;
+}

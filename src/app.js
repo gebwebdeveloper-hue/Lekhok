@@ -16,6 +16,7 @@ import profileRoutes from "./routes/profile.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 import clubRoutes from "./routes/club.routes.js";
 import authorRoutes from "./routes/author.routes.js";
+import publishingRoutes from "./routes/publishing.routes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -81,8 +82,10 @@ app.use("/api/profile", profileRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/club", clubRoutes);
 app.use("/api/authors", authorRoutes);
+app.use("/api/publishing", publishingRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
 
 export default app;
+

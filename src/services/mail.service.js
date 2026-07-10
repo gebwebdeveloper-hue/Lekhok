@@ -211,3 +211,78 @@ export async function sendPhysicalOrderEmail({ purchase, book, user }) {
 
   return info;
 }
+
+
+function lightDetailRow(label, value) {
+  return `
+    <tr>
+      <td style="padding:10px 12px;color:#475569;border-bottom:1px solid #e5e7eb;width:180px">${escapeHtml(label)}</td>
+      <td style="padding:10px 12px;color:#111827;border-bottom:1px solid #e5e7eb;font-weight:600">${escapeHtml(value || "-")}</td>
+    </tr>
+  `;
+}
+export async function sendClubApplicationEmail(application) {
+  const recipients = env.adminEmails;
+  if (!recipients.length) {
+    console.warn("[Email] Club application email skipped: ADMIN_EMAILS is not configured.");
+    return { skipped: true };
+  }
+
+  const subject = `New Lekhok Tripura Club application - ${application.fullName}`;
+  const htmlContent = `
+    <div style="font-family:Inter,Arial,sans-serif;background:#f6f1e8;color:#102c22;padding:28px;border-radius:18px;max-width:760px">
+      <p style="letter-spacing:0.24em;text-transform:uppercase;color:#174d38;font-size:12px;margin:0 0 10px">LEKHOK TRIPURA CLUB</p>
+      <h1 style="font-size:28px;margin:0 0 8px;color:#174d38">New Club Application</h1>
+      <p style="color:#334155;margin:0 0 24px">A reader/writer submitted the Join Our Club form.</p>
+      <table style="width:100%;border-collapse:collapse;background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden">
+        ${lightDetailRow("Full Name", application.fullName)}
+        ${lightDetailRow("Mail ID", application.email)}
+        ${lightDetailRow("Phone Number", application.phone)}
+        ${lightDetailRow("WhatsApp Number", application.whatsapp)}
+        ${lightDetailRow("Date of Birth", application.dateOfBirth)}
+        ${lightDetailRow("Address", application.address)}
+        ${lightDetailRow("Reason", application.reason)}
+      </table>
+    </div>
+  `;
+
+  const textContent = [
+    "New Lekhok Tripura Club application",
+    `Full Name: ${application.fullName}`,
+    `Mail ID: ${application.email}`,
+    `Phone Number: ${application.phone}`,
+    `WhatsApp Number: ${application.whatsapp}`,
+    `Date of Birth: ${application.dateOfBirth}`,
+    `Address: ${application.address}`,
+    `Reason: ${application.reason}`
+  ].join("\n");
+
+  if (env.resendApiKey) {
+    try {
+      console.log("[Email] Sending club application to admins via Resend...");
+      return await sendEmailViaResend({
+        to: recipients,
+        subject,
+        html: htmlContent,
+        text: textContent
+      });
+    } catch (error) {
+      console.error("[Email] Failed to send club application via Resend:", error);
+    }
+  }
+
+  const info = await getTransport().sendMail({
+    from: env.smtp.from || "LEKHAK <no-reply@lekhoktripura.in>",
+    to: recipients,
+    subject,
+    html: htmlContent,
+    text: textContent
+  });
+
+  if (env.nodeEnv !== "production" && info.message) {
+    console.log("Club application email preview (SMTP Fallback):", info.message.toString());
+  }
+
+  return info;
+}
+

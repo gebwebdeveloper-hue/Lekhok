@@ -162,3 +162,19 @@ export const resetPasswordSchema = {
     newPassword: passwordSchema
   }).required()
 };
+
+export const clubJoinSchema = {
+  body: Joi.object({
+    fullName: Joi.string().trim().max(120).required(),
+    email: emailSchema,
+    phone: Joi.string().trim().pattern(/^[0-9]+$/).min(10).max(20).required().messages({
+      "string.pattern.base": "Phone number must contain only numbers."
+    }),
+    whatsapp: Joi.string().trim().pattern(/^[0-9]+$/).min(10).max(20).required().messages({
+      "string.pattern.base": "WhatsApp number must contain only numbers."
+    }),
+    dateOfBirth: Joi.date().iso().required(),
+    address: Joi.string().trim().max(1000).required(),
+    reason: Joi.string().trim().max(1500).required()
+  }).required()
+};

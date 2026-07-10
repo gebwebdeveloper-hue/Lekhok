@@ -10,6 +10,7 @@ const userSchema = new mongoose.Schema(
     lastLoginAt: Date,
     co: { type: String, trim: true, maxlength: 120 },
     phone: { type: String, trim: true, maxlength: 20 },
+    age: { type: Number, min: 1, max: 120 },
     country: { type: String, trim: true, default: "India", maxlength: 80 },
     district: { type: String, trim: true, maxlength: 80 },
     block: { type: String, trim: true, maxlength: 80 },
@@ -29,3 +30,4 @@ userSchema.set("toJSON", {
 });
 
 export const User = mongoose.model("User", userSchema);
+

@@ -12,14 +12,8 @@ export const verifyOtpSchema = {
     email: emailSchema,
     otp: Joi.string().required(),
     name: Joi.string().trim().max(80).allow(""),
-    co: Joi.string().trim().max(120).allow(""),
     phone: Joi.string().trim().max(20).allow(""),
-    country: Joi.string().trim().max(80).allow(""),
-    district: Joi.string().trim().max(80).allow(""),
-    block: Joi.string().trim().max(80).allow(""),
-    pin: Joi.string().trim().max(10).allow(""),
-    postOffice: Joi.string().trim().max(80).allow(""),
-    nearbyLocation: Joi.string().trim().max(200).allow("")
+    age: Joi.number().integer().min(1).max(120)
   }).required()
 };
 
@@ -65,10 +59,38 @@ export const idParamSchema = {
 export const purchaseCreateSchema = {
   body: Joi.object({
     bookId: objectIdSchema,
-    transactionNumber: Joi.string().trim().pattern(/^[0-9]+$/).max(100).required().messages({
-      "string.pattern.base": "Transaction number must contain only numbers."
+    format: Joi.string().valid("ebook", "paperback", "hardcover").default("ebook"),
+    transactionNumber: Joi.when("format", {
+      is: "ebook",
+      then: Joi.string().trim().pattern(/^[0-9]+$/).max(100).required().messages({
+        "string.pattern.base": "Transaction number must contain only numbers."
+      }),
+      otherwise: Joi.string().trim().pattern(/^[0-9]*$/).max(100).allow("")
     }),
-    note: Joi.string().trim().max(500).allow("")
+    note: Joi.string().trim().max(500).allow(""),
+    co: Joi.string().trim().max(120).allow(""),
+    country: Joi.string().trim().max(80).default("India"),
+    district: Joi.when("format", {
+      is: Joi.valid("paperback", "hardcover"),
+      then: Joi.string().trim().max(80).required(),
+      otherwise: Joi.string().trim().max(80).allow("")
+    }),
+    block: Joi.when("format", {
+      is: Joi.valid("paperback", "hardcover"),
+      then: Joi.string().trim().max(80).required(),
+      otherwise: Joi.string().trim().max(80).allow("")
+    }),
+    pin: Joi.when("format", {
+      is: Joi.valid("paperback", "hardcover"),
+      then: Joi.string().trim().pattern(/^[0-9]+$/).max(10).required(),
+      otherwise: Joi.string().trim().pattern(/^[0-9]*$/).max(10).allow("")
+    }),
+    postOffice: Joi.string().trim().max(80).allow(""),
+    nearbyLocation: Joi.when("format", {
+      is: Joi.valid("paperback", "hardcover"),
+      then: Joi.string().trim().max(200).required(),
+      otherwise: Joi.string().trim().max(200).allow("")
+    })
   }).required()
 };
 
@@ -115,16 +137,10 @@ export const registerSchema = {
     otp: Joi.string().length(6).required().messages({ "string.length": "OTP must be 6 digits." }),
     // Profile fields
     name: Joi.string().trim().max(80).required(),
-    co: Joi.string().trim().max(120).allow(""),
     phone: Joi.string().trim().pattern(/^[0-9]+$/).max(20).required().messages({
       "string.pattern.base": "Phone number must contain only numbers."
     }),
-    country: Joi.string().trim().max(80).default("India"),
-    district: Joi.string().trim().max(80).allow(""),
-    block: Joi.string().trim().max(80).allow(""),
-    pin: Joi.string().trim().max(10).allow(""),
-    postOffice: Joi.string().trim().max(80).allow(""),
-    nearbyLocation: Joi.string().trim().max(200).allow("")
+    age: Joi.number().integer().min(1).max(120).required()
   }).required()
 };
 

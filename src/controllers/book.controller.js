@@ -65,7 +65,7 @@ export const getBookBySlug = asyncHandler(async (req, res) => {
 
   let access = false;
   if (req.user) {
-    access = Boolean(await PurchaseRequest.exists({ userId: req.user._id, bookId: book._id, status: "approved" }));
+    access = Boolean(await PurchaseRequest.exists({ userId: req.user._id, bookId: book._id, format: "ebook", status: "approved" }));
   }
 
   res.json({ success: true, book, access });
@@ -138,7 +138,7 @@ export const streamBookPreview = asyncHandler(async (req, res) => {
   const book = await Book.findById(req.params.id);
   if (!book) throw new ApiError(404, "Book not found.");
 
-  const approved = await PurchaseRequest.exists({ userId: req.user._id, bookId: book._id, status: "approved" });
+  const approved = await PurchaseRequest.exists({ userId: req.user._id, bookId: book._id, format: "ebook", status: "approved" });
   if (!approved && req.user.role !== "admin") {
     throw new ApiError(403, "Access denied. Approved purchase is required to preview this book.");
   }

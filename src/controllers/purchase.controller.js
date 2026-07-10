@@ -3,16 +3,22 @@ import { PurchaseRequest } from "../models/PurchaseRequest.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../middlewares/error.middleware.js";
 import { persistUploadedFile } from "../services/storage.service.js";
+import { sendPhysicalOrderEmail } from "../services/mail.service.js";
 import { env } from "../config/env.js";
 
 export const createPurchaseRequest = asyncHandler(async (req, res) => {
   const book = await Book.findById(req.body.bookId);
   if (!book) throw new ApiError(404, "Book not found.");
 
-  const approved = await PurchaseRequest.exists({ userId: req.user._id, bookId: book._id, status: "approved" });
+  const format = req.body.format || "ebook";
+  const isEbook = format === "ebook";
+
+  const approved = isEbook
+    ? await PurchaseRequest.exists({ userId: req.user._id, bookId: book._id, format: "ebook", status: "approved" })
+    : null;
   if (approved) throw new ApiError(409, "You already have access to this book.");
 
-  const existingPending = await PurchaseRequest.findOne({ userId: req.user._id, bookId: book._id, status: "pending" });
+  const existingPending = await PurchaseRequest.findOne({ userId: req.user._id, bookId: book._id, format, status: "pending" });
   if (existingPending) return res.status(200).json({ success: true, purchase: existingPending, payment: { upiId: env.upiId, qr: env.upiQrImageUrl } });
 
   const screenshot = await persistUploadedFile(req.file, "payments", "image");
@@ -21,11 +27,36 @@ export const createPurchaseRequest = asyncHandler(async (req, res) => {
     bookId: book._id,
     amount: book.price,
     paymentScreenshot: screenshot,
+    format,
     transactionNumber: req.body.transactionNumber,
-    note: req.body.note
+    note: req.body.note,
+    deliveryAddress: isEbook ? undefined : {
+      co: req.body.co,
+      country: req.body.country || "India",
+      district: req.body.district,
+      block: req.body.block,
+      pin: req.body.pin,
+      postOffice: req.body.postOffice,
+      nearbyLocation: req.body.nearbyLocation
+    }
   });
 
-  res.status(201).json({ success: true, purchase, payment: { upiId: env.upiId, qr: env.upiQrImageUrl } });
+  let adminEmailSent = false;
+  if (!isEbook) {
+    try {
+      await sendPhysicalOrderEmail({ purchase, book, user: req.user });
+      adminEmailSent = true;
+    } catch (error) {
+      console.error("[Email] Failed to notify admin about physical order:", error);
+    }
+  }
+
+  res.status(201).json({
+    success: true,
+    purchase,
+    adminEmailSent,
+    payment: { upiId: env.upiId, qr: env.upiQrImageUrl }
+  });
 });
 
 export const myPurchases = asyncHandler(async (req, res) => {
@@ -37,7 +68,7 @@ export const adminPurchases = asyncHandler(async (req, res) => {
   const { status } = req.query;
   const filter = status ? { status } : {};
   const purchases = await PurchaseRequest.find(filter)
-    .populate("userId", "name email role co phone country district block pin postOffice nearbyLocation")
+    .populate("userId", "name email role phone age")
     .populate("bookId")
     .sort({ createdAt: -1 });
   res.json({ success: true, purchases });
@@ -72,3 +103,4 @@ export const rejectPurchase = asyncHandler(async (req, res) => {
 
   res.json({ success: true, purchase });
 });
+

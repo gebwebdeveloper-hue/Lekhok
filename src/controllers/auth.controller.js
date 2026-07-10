@@ -26,7 +26,7 @@ export const verifyOtpLogin = asyncHandler(async (req, res) => {
   const role = env.adminEmails.includes(verifiedEmail) ? "admin" : "user";
 
   const updateFields = { verified: true, lastLoginAt: new Date(), role };
-  const allowedFields = ["name", "co", "phone", "country", "district", "block", "pin", "postOffice", "nearbyLocation"];
+  const allowedFields = ["name", "phone", "age"];
   allowedFields.forEach((field) => {
     if (req.body[field] !== undefined && req.body[field] !== "") {
       updateFields[field] = req.body[field];
@@ -51,7 +51,7 @@ export const verifyOtpLogin = asyncHandler(async (req, res) => {
 
 // ─── Register (email + password + OTP verification) ───────────────────────────
 export const register = asyncHandler(async (req, res) => {
-  const { email, password, otp, name, co, phone, country, district, block, pin, postOffice, nearbyLocation } = req.body;
+  const { email, password, otp, name, phone, age } = req.body;
   const normalizedEmail = normalizeEmail(email);
 
   // Verify OTP (was sent via /send-otp before this call)
@@ -75,7 +75,8 @@ export const register = asyncHandler(async (req, res) => {
         lastLoginAt: new Date(),
         role,
         name: name?.trim() || normalizedEmail.split("@")[0],
-        co, phone, country, district, block, pin, postOffice, nearbyLocation
+        phone,
+        age: age ? Number(age) : undefined
       },
       $setOnInsert: { email: normalizedEmail }
     },

@@ -16,6 +16,7 @@ const storage = multer.diskStorage({
     if (file.fieldname === "previewImages") folder = "previews";
     if (["previewPdf", "pdf", "document"].includes(file.fieldname)) folder = "pdfs";
     if (file.fieldname === "paymentScreenshot") folder = "payments";
+    if (file.fieldname === "thumbnail") folder = "authors";
     const dir = path.join(uploadRoot, folder);
     ensureDir(dir);
     cb(null, dir);

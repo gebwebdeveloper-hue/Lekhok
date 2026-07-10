@@ -6,6 +6,9 @@ import { ReadingProgress } from "../models/ReadingProgress.js";
 import { Bookmark } from "../models/Bookmark.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../middlewares/error.middleware.js";
+import http from "http";
+import https from "https";
+import { cloudinary } from "../config/cloudinary.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -46,7 +49,60 @@ export const streamReaderPdf = asyncHandler(async (req, res) => {
     return res.sendFile(localPath);
   }
 
-  res.json({ success: true, signedUrl: book.pdf.url, expiresInSeconds: 300 });
+  let pdfUrl = book.pdf.url;
+  if (book.pdf.storage === "cloudinary" && book.pdf.publicId) {
+    const isRaw = book.pdf.url.includes("/raw/upload/") || book.pdf.url.includes("/raw/authenticated/");
+    const isAuth = book.pdf.url.includes("/authenticated/");
+    
+    if (isAuth) {
+      const extMatch = book.pdf.url.match(/\.([a-zA-Z0-9]+)(?:[?#]|$)/);
+      const format = extMatch ? extMatch[1] : "pdf";
+      pdfUrl = cloudinary.utils.private_download_url(book.pdf.publicId, format, {
+        resource_type: isRaw ? "raw" : "image",
+        type: "authenticated",
+        expires_at: Math.floor(Date.now() / 1000) + 3600
+      });
+    } else {
+      const versionMatch = book.pdf.url.match(/\/v(\d+)\//);
+      const version = versionMatch ? versionMatch[1] : null;
+      const extMatch = book.pdf.url.match(/\.([a-zA-Z0-9]+)(?:[?#]|$)/);
+      const format = extMatch ? extMatch[1] : "pdf";
+      const hasExtension = book.pdf.publicId.endsWith(`.${format}`);
+      
+      pdfUrl = cloudinary.url(book.pdf.publicId, {
+        resource_type: isRaw ? "raw" : "image",
+        sign_url: true,
+        secure: true,
+        ...(version ? { version } : {}),
+        ...(!hasExtension ? { format } : {})
+      });
+    }
+  }
+
+  const downloadStream = (url, depth = 0) => {
+    if (depth > 5) {
+      return res.status(500).json({ success: false, message: "Too many redirects." });
+    }
+
+    const client = url.startsWith("https") ? https : http;
+    client.get(url, (stream) => {
+      if (stream.statusCode >= 300 && stream.statusCode < 400 && stream.headers.location) {
+        return downloadStream(stream.headers.location, depth + 1);
+      }
+
+      if (stream.statusCode !== 200) {
+        return res.status(500).json({ success: false, message: `Failed to fetch PDF. Status: ${stream.statusCode}` });
+      }
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `inline; filename="${book.slug || "book"}.pdf"`);
+      stream.pipe(res);
+    }).on("error", (err) => {
+      res.status(500).json({ success: false, message: `Failed to connect to storage: ${err.message}` });
+    });
+  };
+
+  downloadStream(pdfUrl);
 });
 
 export const updateProgress = asyncHandler(async (req, res) => {

@@ -42,11 +42,12 @@ async function resolvePdfUpload(files) {
 }
 
 export const listBooks = asyncHandler(async (req, res) => {
-  const { category, featured, trending, q, page = 1, limit = 12 } = req.query;
+  const { category, featured, trending, q, author, page = 1, limit = 12 } = req.query;
   const filter = {};
   if (category) filter.category = category;
   if (featured !== undefined) filter.featured = featured === "true";
   if (trending !== undefined) filter.trending = trending === "true";
+  if (author) filter.author = { $regex: new RegExp(`^${author.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") };
   if (q) filter.$text = { $search: q };
 
   const pageNumber = Math.max(Number(page), 1);

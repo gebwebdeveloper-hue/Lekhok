@@ -21,22 +21,23 @@ const __dirname = path.dirname(__filename);
 const app = express();
 
 app.set("trust proxy", 1);
+const allowedOrigins = (env.clientUrl || "")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
     contentSecurityPolicy: {
       directives: {
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-        "frame-ancestors": ["'self'", env.clientUrl],
+        "frame-ancestors": ["'self'", ...allowedOrigins],
       },
     },
     frameguard: false
   })
 );
-const allowedOrigins = (env.clientUrl || "")
-  .split(",")
-  .map((o) => o.trim())
-  .filter(Boolean);
 
 app.use(
   cors({

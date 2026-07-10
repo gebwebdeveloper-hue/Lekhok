@@ -1,0 +1,16 @@
+[2026-07-10T12:36:47.606Z] ERROR: language override unsupported: Bengali
+Stack: MongoServerError: language override unsupported: Bengali
+    at InsertOneOperation.handleOk (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\operations\insert.js:51:19)
+    at tryOperation (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\operations\execute_operation.js:214:34)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async executeOperation (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\operations\execute_operation.js:78:16)
+    at async Collection.insertOne (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\collection.js:154:16)
+
+[2026-07-10T12:37:32.448Z] ERROR: language override unsupported: Bengali
+Stack: MongoServerError: language override unsupported: Bengali
+    at InsertOneOperation.handleOk (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\operations\insert.js:51:19)
+    at tryOperation (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\operations\execute_operation.js:214:34)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async executeOperation (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\operations\execute_operation.js:78:16)
+    at async Collection.insertOne (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\collection.js:154:16)
+

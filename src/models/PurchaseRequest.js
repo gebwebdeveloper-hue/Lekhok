@@ -1,0 +1,30 @@
+import mongoose from "mongoose";
+
+const purchaseRequestSchema = new mongoose.Schema(
+  {
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    bookId: { type: mongoose.Schema.Types.ObjectId, ref: "Book", required: true, index: true },
+    amount: { type: Number, required: true, min: 0 },
+    status: { type: String, enum: ["pending", "approved", "rejected"], default: "pending", index: true },
+    transactionNumber: { type: String, trim: true, index: true },
+    paymentScreenshot: {
+      url: String,
+      publicId: String,
+      storage: { type: String, enum: ["local", "cloudinary", "s3", "external"], default: "local" },
+      mimeType: String,
+      size: Number,
+      originalName: String
+    },
+    note: { type: String, trim: true, maxlength: 500 },
+    adminNote: { type: String, trim: true, maxlength: 500 },
+    approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    approvedAt: Date,
+    rejectedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    rejectedAt: Date
+  },
+  { timestamps: true }
+);
+
+purchaseRequestSchema.index({ userId: 1, bookId: 1, status: 1 });
+
+export const PurchaseRequest = mongoose.model("PurchaseRequest", purchaseRequestSchema);

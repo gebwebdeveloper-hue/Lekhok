@@ -30,6 +30,7 @@ export const bookCreateSchema = {
     tags: Joi.alternatives().try(Joi.string().allow(""), Joi.array().items(Joi.string())).allow(""),
     featured: Joi.alternatives().try(Joi.boolean(), Joi.string()),
     trending: Joi.alternatives().try(Joi.boolean(), Joi.string()),
+    ourPublication: Joi.alternatives().try(Joi.boolean(), Joi.string()),
     publishedAt: Joi.date()
   }).required()
 };
@@ -48,6 +49,7 @@ export const bookUpdateSchema = {
     tags: Joi.alternatives().try(Joi.string().allow(""), Joi.array().items(Joi.string())).allow(""),
     featured: Joi.alternatives().try(Joi.boolean(), Joi.string()),
     trending: Joi.alternatives().try(Joi.boolean(), Joi.string()),
+    ourPublication: Joi.alternatives().try(Joi.boolean(), Joi.string()),
     publishedAt: Joi.date()
   }).min(1)
 };

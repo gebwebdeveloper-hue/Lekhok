@@ -29,6 +29,7 @@ const bookSchema = new mongoose.Schema(
     tags: [{ type: String, trim: true, lowercase: true }],
     featured: { type: Boolean, default: false, index: true },
     trending: { type: Boolean, default: false, index: true },
+    ourPublication: { type: Boolean, default: false, index: true },
     rating: { type: Number, min: 0, max: 5, default: 0 },
     publishedAt: Date,
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }

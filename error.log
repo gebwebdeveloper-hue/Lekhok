@@ -14,3 +14,17 @@ Stack: MongoServerError: language override unsupported: Bengali
     at async executeOperation (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\operations\execute_operation.js:78:16)
     at async Collection.insertOne (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\collection.js:154:16)
 
+[2026-07-11T03:15:05.123Z] ERROR: Author validation failed: bio: Path `bio` (`Ritvikk Chakraborty is the Fou...`, length 2346) is longer than the maximum allowed length (600).
+Stack: ValidationError: Author validation failed: bio: Path `bio` (`Ritvikk Chakraborty is the Fou...`, length 2346) is longer than the maximum allowed length (600).
+    at Document.invalidate (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongoose\lib\document.js:3387:32)
+    at C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongoose\lib\document.js:3148:17
+    at C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongoose\lib\schemaType.js:1443:9
+    at process.processTicksAndRejections (node:internal/process/task_queues:85:11)
+
+[2026-07-11T03:15:51.624Z] ERROR: Author validation failed: bio: Path `bio` (`Ritvikk Chakraborty is the Fou...`, length 2346) is longer than the maximum allowed length (600).
+Stack: ValidationError: Author validation failed: bio: Path `bio` (`Ritvikk Chakraborty is the Fou...`, length 2346) is longer than the maximum allowed length (600).
+    at Document.invalidate (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongoose\lib\document.js:3387:32)
+    at C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongoose\lib\document.js:3148:17
+    at C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongoose\lib\schemaType.js:1443:9
+    at process.processTicksAndRejections (node:internal/process/task_queues:85:11)
+

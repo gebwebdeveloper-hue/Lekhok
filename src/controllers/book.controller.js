@@ -42,11 +42,12 @@ async function resolvePdfUpload(files) {
 }
 
 export const listBooks = asyncHandler(async (req, res) => {
-  const { category, featured, trending, q, author, page = 1, limit = 12 } = req.query;
+  const { category, featured, trending, ourPublication, q, author, page = 1, limit = 12 } = req.query;
   const filter = {};
   if (category) filter.category = category;
   if (featured !== undefined) filter.featured = featured === "true";
   if (trending !== undefined) filter.trending = trending === "true";
+  if (ourPublication !== undefined) filter.ourPublication = ourPublication === "true";
   if (author) filter.author = { $regex: new RegExp(`^${author.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") };
   if (q) filter.$text = { $search: q };
 
@@ -95,6 +96,7 @@ export const createBook = asyncHandler(async (req, res) => {
     tags: parseTags(body.tags),
     featured: body.featured === "true" || body.featured === true,
     trending: body.trending === "true" || body.trending === true,
+    ourPublication: body.ourPublication === "true" || body.ourPublication === true,
     publishedAt: body.publishedAt ? new Date(body.publishedAt) : new Date(),
     createdBy: req.user._id
   });
@@ -114,6 +116,7 @@ export const updateBook = asyncHandler(async (req, res) => {
   if (body.tags !== undefined) updates.tags = parseTags(body.tags);
   if (body.featured !== undefined) updates.featured = body.featured === "true" || body.featured === true;
   if (body.trending !== undefined) updates.trending = body.trending === "true" || body.trending === true;
+  if (body.ourPublication !== undefined) updates.ourPublication = body.ourPublication === "true" || body.ourPublication === true;
 
   const cover = await persistUploadedFile(getFile(req.files, "cover"), "covers", "image");
   const previewPdf = await persistUploadedFile(getFile(req.files, "previewPdf"), "previews", "raw");

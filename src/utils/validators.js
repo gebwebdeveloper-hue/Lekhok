@@ -23,14 +23,15 @@ export const bookCreateSchema = {
     slug: Joi.string().trim().max(220).allow(""),
     author: Joi.string().trim().max(120).required(),
     description: Joi.string().trim().max(6000).required(),
-    price: Joi.number().min(0).required(),
+    price: Joi.number().min(0).default(0),
     category: Joi.string().trim().max(80).required(),
     language: Joi.string().trim().max(80).default("English"),
-    pages: Joi.number().integer().min(1).required(),
+    pages: Joi.number().integer().min(0).default(0),
     tags: Joi.alternatives().try(Joi.string().allow(""), Joi.array().items(Joi.string())).allow(""),
     featured: Joi.alternatives().try(Joi.boolean(), Joi.string()),
     trending: Joi.alternatives().try(Joi.boolean(), Joi.string()),
     ourPublication: Joi.alternatives().try(Joi.boolean(), Joi.string()),
+    comingSoon: Joi.alternatives().try(Joi.boolean(), Joi.string()),
     publishedAt: Joi.date()
   }).required()
 };
@@ -45,11 +46,12 @@ export const bookUpdateSchema = {
     price: Joi.number().min(0),
     category: Joi.string().trim().max(80),
     language: Joi.string().trim().max(80),
-    pages: Joi.number().integer().min(1),
+    pages: Joi.number().integer().min(0),
     tags: Joi.alternatives().try(Joi.string().allow(""), Joi.array().items(Joi.string())).allow(""),
     featured: Joi.alternatives().try(Joi.boolean(), Joi.string()),
     trending: Joi.alternatives().try(Joi.boolean(), Joi.string()),
     ourPublication: Joi.alternatives().try(Joi.boolean(), Joi.string()),
+    comingSoon: Joi.alternatives().try(Joi.boolean(), Joi.string()),
     publishedAt: Joi.date()
   }).min(1)
 };

@@ -97,6 +97,7 @@ export const createBook = asyncHandler(async (req, res) => {
     featured: body.featured === "true" || body.featured === true,
     trending: body.trending === "true" || body.trending === true,
     ourPublication: body.ourPublication === "true" || body.ourPublication === true,
+    comingSoon: body.comingSoon === "true" || body.comingSoon === true,
     publishedAt: body.publishedAt ? new Date(body.publishedAt) : new Date(),
     createdBy: req.user._id
   });
@@ -117,6 +118,7 @@ export const updateBook = asyncHandler(async (req, res) => {
   if (body.featured !== undefined) updates.featured = body.featured === "true" || body.featured === true;
   if (body.trending !== undefined) updates.trending = body.trending === "true" || body.trending === true;
   if (body.ourPublication !== undefined) updates.ourPublication = body.ourPublication === "true" || body.ourPublication === true;
+  if (body.comingSoon !== undefined) updates.comingSoon = body.comingSoon === "true" || body.comingSoon === true;
 
   const cover = await persistUploadedFile(getFile(req.files, "cover"), "covers", "image");
   const previewPdf = await persistUploadedFile(getFile(req.files, "previewPdf"), "previews", "raw");

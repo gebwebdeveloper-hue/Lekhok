@@ -21,7 +21,7 @@ const bookSchema = new mongoose.Schema(
     price: { type: Number, required: true, min: 0 },
     category: { type: String, required: true, trim: true, index: true },
     language: { type: String, default: "English", trim: true },
-    pages: { type: Number, required: true, min: 1 },
+    pages: { type: Number, required: false, min: 0, default: 0 },
     cover: assetSchema,
     previewImages: [assetSchema],
     previewPdf: assetSchema,
@@ -30,6 +30,7 @@ const bookSchema = new mongoose.Schema(
     featured: { type: Boolean, default: false, index: true },
     trending: { type: Boolean, default: false, index: true },
     ourPublication: { type: Boolean, default: false, index: true },
+    comingSoon: { type: Boolean, default: false, index: true },
     rating: { type: Number, min: 0, max: 5, default: 0 },
     publishedAt: Date,
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }

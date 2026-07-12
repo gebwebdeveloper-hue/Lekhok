@@ -1,5 +1,6 @@
 import { Book } from "../models/Book.js";
 import { PurchaseRequest } from "../models/PurchaseRequest.js";
+import { PaymentConfig } from "../models/PaymentConfig.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../middlewares/error.middleware.js";
 import { persistUploadedFile } from "../services/storage.service.js";
@@ -102,5 +103,55 @@ export const rejectPurchase = asyncHandler(async (req, res) => {
   await purchase.save();
 
   res.json({ success: true, purchase });
+});
+
+export const getPaymentConfig = asyncHandler(async (req, res) => {
+  const config = await PaymentConfig.findOne({ key: "default" });
+  if (config) {
+    res.json({
+      success: true,
+      upiId: config.upiId,
+      upiQrImageUrl: config.upiQrImage?.url || ""
+    });
+  } else {
+    res.json({
+      success: true,
+      upiId: env.upiId,
+      upiQrImageUrl: env.upiQrImageUrl
+    });
+  }
+});
+
+export const updatePaymentConfig = asyncHandler(async (req, res) => {
+  const { upiId } = req.body;
+  if (!upiId) throw new ApiError(400, "UPI ID is required.");
+
+  let config = await PaymentConfig.findOne({ key: "default" });
+  let qrImage = config?.upiQrImage;
+
+  if (req.file) {
+    qrImage = await persistUploadedFile(req.file, "payments", "image");
+  }
+
+  if (config) {
+    config.upiId = upiId;
+    if (qrImage) config.upiQrImage = qrImage;
+    await config.save();
+  } else {
+    config = await PaymentConfig.create({
+      key: "default",
+      upiId,
+      upiQrImage: qrImage
+    });
+  }
+
+  res.json({
+    success: true,
+    message: "Payment configuration updated successfully.",
+    config: {
+      upiId: config.upiId,
+      upiQrImageUrl: config.upiQrImage?.url || ""
+    }
+  });
 });
 

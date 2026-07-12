@@ -6,7 +6,9 @@ import { persistUploadedFile } from "../services/storage.service.js";
 
 /** GET /api/authors — public, lists all featured authors ordered by order field */
 export const listAuthors = asyncHandler(async (_req, res) => {
-  const authors = await Author.find({ featured: true }).sort({ order: 1, createdAt: -1 });
+  const authors = await Author.find({
+    $or: [{ featured: true }, { ourPublicationAuthor: true }]
+  }).sort({ order: 1, createdAt: -1 });
   // Attach book count per author
   const names = authors.map((a) => a.name);
   const counts = await Book.aggregate([
@@ -26,7 +28,7 @@ export const listAllAuthors = asyncHandler(async (_req, res) => {
 
 /** POST /api/authors — admin only, create author */
 export const createAuthor = asyncHandler(async (req, res) => {
-  const { name, bio, featured, order } = req.body;
+  const { name, bio, featured, ourPublicationAuthor, order } = req.body;
   if (!name) throw new ApiError(400, "Author name is required.");
   const thumbnail = await persistUploadedFile(req.file, "authors", "image");
   const author = await Author.create({
@@ -34,6 +36,7 @@ export const createAuthor = asyncHandler(async (req, res) => {
     bio,
     thumbnail,
     featured: featured === "true" || featured === true,
+    ourPublicationAuthor: ourPublicationAuthor === "true" || ourPublicationAuthor === true,
     order: order !== undefined ? Number(order) : 0
   });
   res.status(201).json({ success: true, author });
@@ -43,10 +46,11 @@ export const createAuthor = asyncHandler(async (req, res) => {
 export const updateAuthor = asyncHandler(async (req, res) => {
   const author = await Author.findById(req.params.id);
   if (!author) throw new ApiError(404, "Author not found.");
-  const { name, bio, featured, order } = req.body;
+  const { name, bio, featured, ourPublicationAuthor, order } = req.body;
   if (name !== undefined) author.name = name;
   if (bio !== undefined) author.bio = bio;
   if (featured !== undefined) author.featured = featured === "true" || featured === true;
+  if (ourPublicationAuthor !== undefined) author.ourPublicationAuthor = ourPublicationAuthor === "true" || ourPublicationAuthor === true;
   if (order !== undefined) author.order = Number(order);
   if (req.file) {
     const thumbnail = await persistUploadedFile(req.file, "authors", "image");

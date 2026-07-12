@@ -18,6 +18,7 @@ const authorSchema = new mongoose.Schema(
     bio: { type: String, trim: true, maxlength: 600 },
     thumbnail: assetSchema,
     featured: { type: Boolean, default: true, index: true },
+    ourPublicationAuthor: { type: Boolean, default: false, index: true },
     order: { type: Number, default: 0 }
   },
   { timestamps: true }

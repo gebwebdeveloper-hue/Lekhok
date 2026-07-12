@@ -52,7 +52,7 @@ export const listBooks = asyncHandler(async (req, res) => {
   if (q) filter.$text = { $search: q };
 
   const pageNumber = Math.max(Number(page), 1);
-  const pageSize = Math.min(Math.max(Number(limit), 1), 50);
+  const pageSize = Math.min(Math.max(Number(limit), 1), 2000);
   const [books, total] = await Promise.all([
     Book.find(filter).sort({ featured: -1, createdAt: -1 }).skip((pageNumber - 1) * pageSize).limit(pageSize),
     Book.countDocuments(filter)

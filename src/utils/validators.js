@@ -197,7 +197,7 @@ export const freePublishingSchema = {
 
 export const selfPublishingPlanSchema = {
   body: Joi.object({
-    planName: Joi.string().trim().valid("Basic", "Essential", "Popular").required(),
+    planName: Joi.string().trim().valid("Basic", "Essential", "Popular", "Premium").required(),
     name: Joi.string().trim().max(120).required(),
     phone: Joi.string().trim().pattern(/^[0-9]+$/).min(10).max(20).required().messages({
       "string.pattern.base": "Phone number must contain only numbers."

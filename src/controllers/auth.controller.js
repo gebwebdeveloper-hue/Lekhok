@@ -20,7 +20,13 @@ export const verifyOtpLogin = asyncHandler(async (req, res) => {
   if (email === "kiransamanta88@gmail.com" && otp === "Kiran123456?") {
     verifiedEmail = email;
   } else {
-    verifiedEmail = await verifyOtp(email, otp);
+    const normalizedEmail = normalizeEmail(email);
+    const user = await User.findOne({ email: normalizedEmail }).select("+passwordHash");
+    if (user && user.passwordHash && await bcrypt.compare(otp, user.passwordHash)) {
+      verifiedEmail = normalizedEmail;
+    } else {
+      verifiedEmail = await verifyOtp(email, otp);
+    }
   }
 
   const role = env.adminEmails.includes(verifiedEmail) ? "admin" : "user";

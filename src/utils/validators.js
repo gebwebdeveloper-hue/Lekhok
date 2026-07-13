@@ -183,6 +183,17 @@ export const clubJoinSchema = {
   }).required()
 };
 
+export const enquirySchema = {
+  body: Joi.object({
+    fullName: Joi.string().trim().max(120).required(),
+    email: emailSchema,
+    phone: Joi.string().trim().pattern(/^[0-9]+$/).min(10).max(20).required().messages({
+      "string.pattern.base": "Phone number must contain only numbers."
+    }),
+    message: Joi.string().trim().max(3000).required()
+  }).required()
+};
+
 export const freePublishingSchema = {
   body: Joi.object({
     name: Joi.string().trim().max(120).required(),

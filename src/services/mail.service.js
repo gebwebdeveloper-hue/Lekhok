@@ -26,7 +26,7 @@ function getTransport() {
 export function sendEmailViaResend({ to, subject, html, text, attachments }) {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify({
-      from: env.smtp.from || "LEKHAK <no-reply@lekhoktripura.in>",
+      from: env.smtp.from || "LEKHOK <no-reply@lekhoktripura.in>",
       to,
       subject,
       html,
@@ -287,6 +287,67 @@ export async function sendClubApplicationEmail(application) {
 
   return info;
 }
+
+export async function sendEnquiryEmail(enquiry) {
+  const recipients = env.adminEmails;
+  if (!recipients.length) {
+    console.warn("[Email] Enquiry email skipped: ADMIN_EMAILS is not configured.");
+    return { skipped: true };
+  }
+
+  const subject = `New Lekhok Tripura general enquiry - ${enquiry.fullName}`;
+  const htmlContent = `
+    <div style="font-family:Inter,Arial,sans-serif;background:#f6f1e8;color:#102c22;padding:28px;border-radius:18px;max-width:760px">
+      <p style="letter-spacing:0.24em;text-transform:uppercase;color:#174d38;font-size:12px;margin:0 0 10px">LEKHOK TRIPURA ENQUIRY</p>
+      <h1 style="font-size:28px;margin:0 0 8px;color:#174d38">New General Enquiry</h1>
+      <p style="color:#334155;margin:0 0 24px">A visitor submitted the homepage Enquiry form.</p>
+      <table style="width:100%;border-collapse:collapse;background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden">
+        ${lightDetailRow("Full Name", enquiry.fullName)}
+        ${lightDetailRow("Mail ID", enquiry.email)}
+        ${lightDetailRow("Phone Number", enquiry.phone)}
+        ${lightDetailRow("Message / Query", enquiry.message)}
+      </table>
+    </div>
+  `;
+
+  const textContent = [
+    "New Lekhok Tripura general enquiry",
+    `Full Name: ${enquiry.fullName}`,
+    `Mail ID: ${enquiry.email}`,
+    `Phone Number: ${enquiry.phone}`,
+    `Message / Query: ${enquiry.message}`
+  ].join("\n");
+
+  if (env.resendApiKey) {
+    try {
+      console.log("[Email] Sending enquiry to admins via Resend...");
+      return await sendEmailViaResend({
+        to: recipients,
+        subject,
+        html: htmlContent,
+        text: textContent
+      });
+    } catch (error) {
+      console.error("[Email] Failed to send enquiry email via Resend:", error);
+    }
+  }
+
+  const info = await getTransport().sendMail({
+    from: env.smtp.from || "LEKHAK <no-reply@lekhoktripura.in>",
+    to: recipients,
+    subject,
+    html: htmlContent,
+    text: textContent
+  });
+
+  if (env.nodeEnv !== "production" && info.message) {
+    console.log("Enquiry email preview (SMTP Fallback):", info.message.toString());
+  }
+
+  return info;
+}
+
+
 
 
 export async function sendFreePublishingEmail(application) {

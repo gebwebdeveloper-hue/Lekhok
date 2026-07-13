@@ -207,3 +207,31 @@ export const selfPublishingPlanSchema = {
     note: Joi.string().trim().max(1500).allow("")
   }).required()
 };
+
+export const newsletterCreateSchema = {
+  body: Joi.object({
+    title: Joi.string().trim().max(200).required(),
+    slug: Joi.string().trim().max(220).allow(""),
+    description: Joi.string().trim().max(1000).required(),
+    content: Joi.string().required(),
+    author: Joi.string().trim().max(120).default("Lekhok Tripura"),
+    status: Joi.string().valid("draft", "published").default("draft"),
+    publishedAt: Joi.date(),
+    fontFamily: Joi.string().trim().max(100).allow("").default("Outfit")
+  }).required()
+};
+
+export const newsletterUpdateSchema = {
+  params: Joi.object({ id: objectIdSchema }).required(),
+  body: Joi.object({
+    title: Joi.string().trim().max(200),
+    slug: Joi.string().trim().max(220),
+    description: Joi.string().trim().max(1000),
+    content: Joi.string(),
+    author: Joi.string().trim().max(120),
+    status: Joi.string().valid("draft", "published"),
+    publishedAt: Joi.date(),
+    fontFamily: Joi.string().trim().max(100).allow("")
+  }).min(1)
+};
+

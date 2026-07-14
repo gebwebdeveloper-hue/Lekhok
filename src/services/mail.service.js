@@ -485,3 +485,53 @@ export async function sendSelfPublishingPlanEmail(application) {
 
   return info;
 }
+
+export async function sendSubscriptionEmail(email) {
+  const recipients = env.adminEmails;
+  if (!recipients.length) {
+    console.warn("[Email] Subscription email skipped: ADMIN_EMAILS is not configured.");
+    return { skipped: true };
+  }
+
+  const subject = `New Free Stories Subscription - ${email}`;
+  const htmlContent = `
+    <div style="font-family:Inter,Arial,sans-serif;background:#f6f1e8;color:#102c22;padding:28px;border-radius:18px;max-width:760px">
+      <p style="letter-spacing:0.24em;text-transform:uppercase;color:#174d38;font-size:12px;margin:0 0 10px">LEKHOK TRIPURA</p>
+      <h1 style="font-size:28px;margin:0 0 8px;color:#174d38">New Free Stories Subscription</h1>
+      <p style="color:#334155;margin:0 0 24px">A visitor has subscribed to receive free stories with the following email address:</p>
+      <table style="width:100%;border-collapse:collapse;background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden">
+        ${lightDetailRow("Subscriber Email", email)}
+      </table>
+    </div>
+  `;
+
+  const textContent = `New Free Stories Subscription\nEmail: ${email}`;
+
+  if (env.resendApiKey) {
+    try {
+      console.log("[Email] Sending free stories subscription to admins via Resend...");
+      return await sendEmailViaResend({
+        to: recipients,
+        subject,
+        html: htmlContent,
+        text: textContent
+      });
+    } catch (error) {
+      console.error("[Email] Failed to send subscription email via Resend:", error);
+    }
+  }
+
+  const info = await getTransport().sendMail({
+    from: env.smtp.from || "LEKHAK <no-reply@lekhoktripura.in>",
+    to: recipients,
+    subject,
+    html: htmlContent,
+    text: textContent
+  });
+
+  if (env.nodeEnv !== "production" && info.message) {
+    console.log("Subscription email preview (SMTP Fallback):", info.message.toString());
+  }
+
+  return info;
+}

@@ -246,3 +246,9 @@ export const newsletterUpdateSchema = {
   }).min(1)
 };
 
+export const subscribeSchema = {
+  body: Joi.object({
+    email: emailSchema
+  }).required()
+};
+

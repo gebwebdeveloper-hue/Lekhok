@@ -13,8 +13,10 @@ import { validate } from "../middlewares/validate.middleware.js";
 import {
   newsletterCreateSchema,
   newsletterUpdateSchema,
-  idParamSchema
+  idParamSchema,
+  subscribeSchema
 } from "../utils/validators.js";
+import { sendSubscriptionEmail } from "../services/mail.service.js";
 import { env } from "../config/env.js";
 import { User } from "../models/User.js";
 import { verifyAuthToken } from "../utils/jwt.js";
@@ -43,6 +45,21 @@ const inlineImageUpload = upload.single("image");
 
 // Public endpoints
 router.get("/", optionalAuth, listNewsletters);
+router.post("/subscribe", validate(subscribeSchema), async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    let adminEmailSent = false;
+    try {
+      await sendSubscriptionEmail(email);
+      adminEmailSent = true;
+    } catch (error) {
+      console.error("[Email] Failed to notify admin about newsletter subscription:", error);
+    }
+    res.status(200).json({ success: true, adminEmailSent });
+  } catch (error) {
+    next(error);
+  }
+});
 router.get("/:slug", optionalAuth, getNewsletterBySlug);
 
 // Admin-only endpoints

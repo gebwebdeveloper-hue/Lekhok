@@ -98,6 +98,8 @@ export const createBook = asyncHandler(async (req, res) => {
     trending: body.trending === "true" || body.trending === true,
     ourPublication: body.ourPublication === "true" || body.ourPublication === true,
     comingSoon: body.comingSoon === "true" || body.comingSoon === true,
+    listenInYoutube: body.listenInYoutube === "true" || body.listenInYoutube === true,
+    youtubeLink: body.youtubeLink || "",
     publishedAt: body.publishedAt ? new Date(body.publishedAt) : new Date(),
     createdBy: req.user._id
   });
@@ -119,6 +121,8 @@ export const updateBook = asyncHandler(async (req, res) => {
   if (body.trending !== undefined) updates.trending = body.trending === "true" || body.trending === true;
   if (body.ourPublication !== undefined) updates.ourPublication = body.ourPublication === "true" || body.ourPublication === true;
   if (body.comingSoon !== undefined) updates.comingSoon = body.comingSoon === "true" || body.comingSoon === true;
+  if (body.listenInYoutube !== undefined) updates.listenInYoutube = body.listenInYoutube === "true" || body.listenInYoutube === true;
+  if (body.youtubeLink !== undefined) updates.youtubeLink = body.youtubeLink;
 
   const cover = await persistUploadedFile(getFile(req.files, "cover"), "covers", "image");
   const previewPdf = await persistUploadedFile(getFile(req.files, "previewPdf"), "previews", "raw");

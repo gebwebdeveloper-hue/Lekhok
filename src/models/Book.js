@@ -31,6 +31,8 @@ const bookSchema = new mongoose.Schema(
     trending: { type: Boolean, default: false, index: true },
     ourPublication: { type: Boolean, default: false, index: true },
     comingSoon: { type: Boolean, default: false, index: true },
+    listenInYoutube: { type: Boolean, default: false },
+    youtubeLink: { type: String, trim: true, default: "" },
     rating: { type: Number, min: 0, max: 5, default: 0 },
     publishedAt: Date,
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }

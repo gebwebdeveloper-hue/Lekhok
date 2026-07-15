@@ -32,6 +32,8 @@ export const bookCreateSchema = {
     trending: Joi.alternatives().try(Joi.boolean(), Joi.string()),
     ourPublication: Joi.alternatives().try(Joi.boolean(), Joi.string()),
     comingSoon: Joi.alternatives().try(Joi.boolean(), Joi.string()),
+    listenInYoutube: Joi.alternatives().try(Joi.boolean(), Joi.string()),
+    youtubeLink: Joi.string().trim().max(500).allow(""),
     publishedAt: Joi.date()
   }).required()
 };
@@ -52,6 +54,8 @@ export const bookUpdateSchema = {
     trending: Joi.alternatives().try(Joi.boolean(), Joi.string()),
     ourPublication: Joi.alternatives().try(Joi.boolean(), Joi.string()),
     comingSoon: Joi.alternatives().try(Joi.boolean(), Joi.string()),
+    listenInYoutube: Joi.alternatives().try(Joi.boolean(), Joi.string()),
+    youtubeLink: Joi.string().trim().max(500).allow(""),
     publishedAt: Joi.date()
   }).min(1)
 };

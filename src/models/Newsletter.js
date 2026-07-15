@@ -23,7 +23,8 @@ const newsletterSchema = new mongoose.Schema(
     status: { type: String, enum: ["draft", "published"], default: "draft", index: true },
     publishedAt: { type: Date, default: Date.now },
     readingTime: { type: Number, default: 0 },
-    fontFamily: { type: String, default: "Outfit", trim: true }
+    fontFamily: { type: String, default: "Outfit", trim: true },
+    categories: [{ type: mongoose.Schema.Types.ObjectId, ref: "Category", index: true }]
   },
   { timestamps: true }
 );

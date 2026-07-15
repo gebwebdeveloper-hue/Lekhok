@@ -28,3 +28,17 @@ Stack: ValidationError: Author validation failed: bio: Path `bio` (`Ritvikk Chak
     at C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongoose\lib\schemaType.js:1443:9
     at process.processTicksAndRejections (node:internal/process/task_queues:85:11)
 
+[2026-07-15T05:58:45.842Z] ERROR: Category validation failed: slug: Path `slug` is required.
+Stack: ValidationError: Category validation failed: slug: Path `slug` is required.
+    at Document.invalidate (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongoose\lib\document.js:3387:32)
+    at C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongoose\lib\document.js:3148:17
+    at C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongoose\lib\schemaType.js:1443:9
+    at process.processTicksAndRejections (node:internal/process/task_queues:85:11)
+
+[2026-07-15T05:59:10.762Z] ERROR: Category validation failed: slug: Path `slug` is required.
+Stack: ValidationError: Category validation failed: slug: Path `slug` is required.
+    at Document.invalidate (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongoose\lib\document.js:3387:32)
+    at C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongoose\lib\document.js:3148:17
+    at C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongoose\lib\schemaType.js:1443:9
+    at process.processTicksAndRejections (node:internal/process/task_queues:85:11)
+

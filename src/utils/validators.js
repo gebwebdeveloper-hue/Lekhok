@@ -228,7 +228,8 @@ export const newsletterCreateSchema = {
     author: Joi.string().trim().max(120).default("Lekhok Tripura"),
     status: Joi.string().valid("draft", "published").default("draft"),
     publishedAt: Joi.date(),
-    fontFamily: Joi.string().trim().max(100).allow("").default("Outfit")
+    fontFamily: Joi.string().trim().max(100).allow("").default("Outfit"),
+    categories: Joi.alternatives().try(Joi.string().allow(""), Joi.array().items(Joi.string())).allow(null, "")
   }).required()
 };
 
@@ -242,8 +243,15 @@ export const newsletterUpdateSchema = {
     author: Joi.string().trim().max(120),
     status: Joi.string().valid("draft", "published"),
     publishedAt: Joi.date(),
-    fontFamily: Joi.string().trim().max(100).allow("")
+    fontFamily: Joi.string().trim().max(100).allow(""),
+    categories: Joi.alternatives().try(Joi.string().allow(""), Joi.array().items(Joi.string())).allow(null, "")
   }).min(1)
+};
+
+export const categoryCreateSchema = {
+  body: Joi.object({
+    name: Joi.string().trim().max(100).required()
+  }).required()
 };
 
 export const subscribeSchema = {

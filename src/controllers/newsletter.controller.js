@@ -9,7 +9,17 @@ function getFile(files, key) {
 }
 
 async function uniqueSlug(title, currentId = null) {
-  const base = slugify(title, { lower: true, strict: true, trim: true });
+  let base = slugify(title, { lower: true, strict: true, trim: true });
+  if (!base) {
+    base = title
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s-]/gu, "")
+      .trim()
+      .replace(/\s+/g, "-");
+  }
+  if (!base) {
+    base = `story-${Date.now()}`;
+  }
   let slug = base;
   let index = 2;
   while (await Newsletter.exists({ slug, ...(currentId ? { _id: { $ne: currentId } } : {}) })) {
@@ -28,14 +38,28 @@ function calculateReadingTime(htmlContent) {
   return Math.ceil(words / 200) || 1;
 }
 
+function parseCategories(categories) {
+  if (!categories) return [];
+  if (Array.isArray(categories)) return categories.map((c) => String(c).trim()).filter(Boolean);
+  return String(categories).split(",").map((c) => c.trim()).filter(Boolean);
+}
+
 export const listNewsletters = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 12, all = "false" } = req.query;
+  const { page = 1, limit = 12, all = "false", categories } = req.query;
   
   const filter = {};
   // Only admin can see drafts, others see only published
   const isAdmin = req.user?.role === "admin";
   if (!isAdmin || all !== "true") {
     filter.status = "published";
+    filter.publishedAt = { $lte: new Date() };
+  }
+
+  if (categories) {
+    const categoryIds = categories.split(",").map((c) => c.trim()).filter(Boolean);
+    if (categoryIds.length > 0) {
+      filter.categories = { $in: categoryIds };
+    }
   }
 
   const pageNumber = Math.max(Number(page), 1);
@@ -43,6 +67,7 @@ export const listNewsletters = asyncHandler(async (req, res) => {
 
   const [newsletters, total] = await Promise.all([
     Newsletter.find(filter)
+      .populate("categories")
       .sort({ publishedAt: -1, createdAt: -1 })
       .skip((pageNumber - 1) * pageSize)
       .limit(pageSize),
@@ -62,12 +87,13 @@ export const listNewsletters = asyncHandler(async (req, res) => {
 });
 
 export const getNewsletterBySlug = asyncHandler(async (req, res) => {
-  const newsletter = await Newsletter.findOne({ slug: req.params.slug });
+  const newsletter = await Newsletter.findOne({ slug: req.params.slug }).populate("categories");
   if (!newsletter) throw new ApiError(404, "Story not found.");
 
-  // Access check: only admin can view draft stories
-  if (newsletter.status === "draft") {
-    const isAdmin = req.user?.role === "admin";
+  // Access check: only admin can view draft or future-published stories
+  const isAdmin = req.user?.role === "admin";
+  const isFuturePublished = newsletter.publishedAt && new Date(newsletter.publishedAt) > new Date();
+  if (newsletter.status === "draft" || isFuturePublished) {
     if (!isAdmin) {
       throw new ApiError(403, "Access denied. This story is not yet published.");
     }
@@ -94,7 +120,8 @@ export const createNewsletter = asyncHandler(async (req, res) => {
     status: body.status || "draft",
     publishedAt: body.publishedAt ? new Date(body.publishedAt) : new Date(),
     readingTime,
-    fontFamily: body.fontFamily || "Outfit"
+    fontFamily: body.fontFamily || "Outfit",
+    categories: parseCategories(body.categories)
   });
 
   res.status(201).json({ success: true, newsletter });
@@ -119,6 +146,10 @@ export const updateNewsletter = asyncHandler(async (req, res) => {
     updates.publishedAt = new Date(body.publishedAt);
   }
 
+  if (body.categories !== undefined) {
+    updates.categories = parseCategories(body.categories);
+  }
+
   const coverFile = getFile(req.files, "cover");
   const cover = await persistUploadedFile(coverFile, "covers", "image");
   if (cover) {
@@ -130,7 +161,9 @@ export const updateNewsletter = asyncHandler(async (req, res) => {
     runValidators: true
   });
 
-  res.json({ success: true, newsletter: updated });
+  const populated = await updated.populate("categories");
+
+  res.json({ success: true, newsletter: populated });
 });
 
 export const deleteNewsletter = asyncHandler(async (req, res) => {

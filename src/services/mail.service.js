@@ -448,6 +448,7 @@ export async function sendSelfPublishingPlanEmail(application) {
         ${detailRow("Email", application.email)}
         ${detailRow("Book is about", application.bookAbout)}
         ${detailRow("Note", application.note)}
+        ${detailRow("Selected Add-ons", Array.isArray(application.addons) ? application.addons.join(", ") : application.addons || "None")}
       </table>
     </div>
   `;
@@ -459,7 +460,8 @@ export async function sendSelfPublishingPlanEmail(application) {
     `Phone: ${application.phone}`,
     `Email: ${application.email}`,
     `Book is about: ${application.bookAbout || "-"}`,
-    `Note: ${application.note || "-"}`
+    `Note: ${application.note || "-"}`,
+    `Selected Add-ons: ${Array.isArray(application.addons) ? application.addons.join(", ") : application.addons || "None"}`
   ].join("\n");
 
   if (env.resendApiKey) {

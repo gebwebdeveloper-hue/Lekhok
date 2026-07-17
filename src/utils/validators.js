@@ -212,14 +212,15 @@ export const freePublishingSchema = {
 
 export const selfPublishingPlanSchema = {
   body: Joi.object({
-    planName: Joi.string().trim().valid("Basic", "Essential", "Popular", "Premium").required(),
+    planName: Joi.string().trim().max(100).required(),
     name: Joi.string().trim().max(120).required(),
     phone: Joi.string().trim().pattern(/^[0-9]+$/).min(10).max(20).required().messages({
       "string.pattern.base": "Phone number must contain only numbers."
     }),
     email: emailSchema,
     bookAbout: Joi.string().trim().max(2500).allow(""),
-    note: Joi.string().trim().max(1500).allow("")
+    note: Joi.string().trim().max(1500).allow(""),
+    addons: Joi.alternatives().try(Joi.string().allow(""), Joi.array().items(Joi.string())).allow(null, "")
   }).required()
 };
 

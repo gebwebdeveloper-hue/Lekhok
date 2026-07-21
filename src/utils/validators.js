@@ -214,11 +214,17 @@ export const selfPublishingPlanSchema = {
   body: Joi.object({
     planName: Joi.string().trim().max(100).required(),
     name: Joi.string().trim().max(120).required(),
-    phone: Joi.string().trim().pattern(/^[0-9]+$/).min(10).max(20).required().messages({
+    phone: Joi.string().trim().pattern(/^[0-9]+$/).min(8).max(20).required().messages({
       "string.pattern.base": "Phone number must contain only numbers."
     }),
     email: emailSchema,
-    bookAbout: Joi.string().trim().max(2500).allow(""),
+    address: Joi.string().trim().max(1500).allow(""),
+    bookTitle: Joi.string().trim().max(200).allow(""),
+    genre: Joi.string().trim().max(100).allow(""),
+    pageCount: Joi.string().trim().max(50).allow(""),
+    publishingType: Joi.string().trim().max(100).allow(""),
+    nominee: Joi.string().trim().max(500).allow(""),
+    bookAbout: Joi.string().trim().max(3000).allow(""),
     note: Joi.string().trim().max(1500).allow(""),
     addons: Joi.alternatives().try(Joi.string().allow(""), Joi.array().items(Joi.string())).allow(null, "")
   }).required()

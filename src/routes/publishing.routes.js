@@ -22,10 +22,13 @@ const manuscriptUpload = multer({
       cb(null, `${Date.now()}-${safeBase}${ext}`);
     }
   }),
-  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  limits: { fileSize: 10 * 1024 * 1024, files: 1 },
   fileFilter(_req, file, cb) {
-    const isPdf = file.mimetype === "application/pdf" && path.extname(file.originalname).toLowerCase() === ".pdf";
-    if (!isPdf) return cb(new ApiError(400, "Only PDF manuscript files are allowed."));
+    const ext = path.extname(file.originalname).toLowerCase();
+    const allowedExts = [".pdf", ".doc", ".docx"];
+    if (!allowedExts.includes(ext)) {
+      return cb(new ApiError(400, "Only PDF and Word documents (.doc, .docx) under 10MB are allowed."));
+    }
     cb(null, true);
   }
 }).single("manuscript");
@@ -34,7 +37,7 @@ function uploadManuscript(req, res, next) {
   manuscriptUpload(req, res, (error) => {
     if (!error) return next();
     if (error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE") {
-      return next(new ApiError(400, "Manuscript PDF must be below 5MB."));
+      return next(new ApiError(400, "Manuscript file must be under 10MB."));
     }
     return next(error);
   });
@@ -42,7 +45,7 @@ function uploadManuscript(req, res, next) {
 
 router.post("/free", uploadManuscript, validate(freePublishingSchema), async (req, res, next) => {
   try {
-    if (!req.file) throw new ApiError(400, "Please upload your manuscript as a PDF under 5MB.");
+    if (!req.file) throw new ApiError(400, "Please upload your manuscript (PDF/DOCX) under 10MB.");
 
     let adminEmailSent = false;
     try {
@@ -59,11 +62,11 @@ router.post("/free", uploadManuscript, validate(freePublishingSchema), async (re
 });
 
 
-router.post("/plan", validate(selfPublishingPlanSchema), async (req, res, next) => {
+router.post("/plan", uploadManuscript, validate(selfPublishingPlanSchema), async (req, res, next) => {
   try {
     let adminEmailSent = false;
     try {
-      await sendSelfPublishingPlanEmail(req.body);
+      await sendSelfPublishingPlanEmail({ ...req.body, manuscript: req.file });
       adminEmailSent = true;
     } catch (error) {
       console.error("[Email] Failed to notify admin about self publishing plan inquiry:", error);

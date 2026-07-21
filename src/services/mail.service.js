@@ -435,6 +435,7 @@ export async function sendSelfPublishingPlanEmail(application) {
     return { skipped: true };
   }
 
+  const manuscript = application.manuscript;
   const subject = `New self publishing plan inquiry - ${application.planName}`;
   const htmlContent = `
     <div style="font-family:Inter,Arial,sans-serif;background:#050505;color:#ffffff;padding:28px;border-radius:18px;max-width:760px">
@@ -446,9 +447,16 @@ export async function sendSelfPublishingPlanEmail(application) {
         ${detailRow("Name", application.name)}
         ${detailRow("Phone", application.phone)}
         ${detailRow("Email", application.email)}
+        ${detailRow("Book Title", application.bookTitle)}
+        ${detailRow("Genre / Category", application.genre)}
+        ${detailRow("Page Count (A5)", application.pageCount)}
+        ${detailRow("Publishing Preference", application.publishingType)}
+        ${detailRow("Nominee Details", application.nominee)}
+        ${detailRow("Full Address", application.address)}
         ${detailRow("Book is about", application.bookAbout)}
         ${detailRow("Note", application.note)}
         ${detailRow("Selected Add-ons", Array.isArray(application.addons) ? application.addons.join(", ") : application.addons || "None")}
+        ${detailRow("Uploaded Manuscript", manuscript?.originalname || "Not uploaded")}
       </table>
     </div>
   `;
@@ -459,15 +467,32 @@ export async function sendSelfPublishingPlanEmail(application) {
     `Name: ${application.name}`,
     `Phone: ${application.phone}`,
     `Email: ${application.email}`,
+    `Book Title: ${application.bookTitle || "-"}`,
+    `Genre / Category: ${application.genre || "-"}`,
+    `Page Count (A5): ${application.pageCount || "-"}`,
+    `Publishing Preference: ${application.publishingType || "-"}`,
+    `Nominee Details: ${application.nominee || "-"}`,
+    `Full Address: ${application.address || "-"}`,
     `Book is about: ${application.bookAbout || "-"}`,
     `Note: ${application.note || "-"}`,
-    `Selected Add-ons: ${Array.isArray(application.addons) ? application.addons.join(", ") : application.addons || "None"}`
+    `Selected Add-ons: ${Array.isArray(application.addons) ? application.addons.join(", ") : application.addons || "None"}`,
+    `Uploaded Manuscript: ${manuscript?.originalname || "-"}`
   ].join("\n");
+
+  const resendAttachments = manuscript?.path ? [{
+    filename: manuscript.originalname || "manuscript",
+    content: fs.readFileSync(manuscript.path).toString("base64")
+  }] : [];
+
+  const smtpAttachments = manuscript?.path ? [{
+    filename: manuscript.originalname || "manuscript",
+    path: manuscript.path
+  }] : [];
 
   if (env.resendApiKey) {
     try {
       console.log("[Email] Sending self publishing plan inquiry to admins via Resend...");
-      return await sendEmailViaResend({ to: recipients, subject, html: htmlContent, text: textContent });
+      return await sendEmailViaResend({ to: recipients, subject, html: htmlContent, text: textContent, attachments: resendAttachments });
     } catch (error) {
       console.error("[Email] Failed to send self publishing plan inquiry via Resend:", error);
     }
@@ -478,7 +503,8 @@ export async function sendSelfPublishingPlanEmail(application) {
     to: recipients,
     subject,
     html: htmlContent,
-    text: textContent
+    text: textContent,
+    attachments: smtpAttachments
   });
 
   if (env.nodeEnv !== "production" && info.message) {

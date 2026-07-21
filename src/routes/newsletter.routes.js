@@ -5,7 +5,11 @@ import {
   getNewsletterBySlug,
   listNewsletters,
   updateNewsletter,
-  uploadInlineImage
+  uploadInlineImage,
+  submitAccessRequest,
+  checkAccessStatus,
+  listAccessRequests,
+  updateAccessRequestStatus
 } from "../controllers/newsletter.controller.js";
 import { requireAuth, requireRole } from "../middlewares/auth.middleware.js";
 import { upload } from "../middlewares/upload.middleware.js";
@@ -13,6 +17,7 @@ import { validate } from "../middlewares/validate.middleware.js";
 import {
   newsletterCreateSchema,
   newsletterUpdateSchema,
+  newsletterAccessRequestSchema,
   idParamSchema,
   subscribeSchema
 } from "../utils/validators.js";
@@ -60,9 +65,17 @@ router.post("/subscribe", validate(subscribeSchema), async (req, res, next) => {
     next(error);
   }
 });
+
+// Story payment access request & verification endpoints
+router.post("/access-request", validate(newsletterAccessRequestSchema), submitAccessRequest);
+router.get("/access-status", checkAccessStatus);
+
+// Single story endpoint
 router.get("/:slug", optionalAuth, getNewsletterBySlug);
 
 // Admin-only endpoints
+router.get("/admin/access-requests", requireAuth, requireRole("admin"), listAccessRequests);
+router.put("/admin/access-requests/:id/status", requireAuth, requireRole("admin"), updateAccessRequestStatus);
 router.post("/", requireAuth, requireRole("admin"), newsletterUpload, validate(newsletterCreateSchema), createNewsletter);
 router.put("/:id", requireAuth, requireRole("admin"), newsletterUpload, validate(newsletterUpdateSchema), updateNewsletter);
 router.delete("/:id", requireAuth, requireRole("admin"), validate(idParamSchema), deleteNewsletter);

@@ -1,5 +1,6 @@
 import slugify from "slugify";
 import { Newsletter } from "../models/Newsletter.js";
+import { NewsletterAccessRequest } from "../models/NewsletterAccessRequest.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../middlewares/error.middleware.js";
 import { persistUploadedFile } from "../services/storage.service.js";
@@ -99,7 +100,37 @@ export const getNewsletterBySlug = asyncHandler(async (req, res) => {
     }
   }
 
-  res.json({ success: true, newsletter });
+  // Check if story is paid and requires access verification
+  let isAccessGranted = !newsletter.isPaid || (newsletter.price || 0) === 0 || isAdmin;
+
+  if (newsletter.isPaid && newsletter.price > 0 && !isAdmin) {
+    const userEmail = req.query.email || req.headers["x-user-email"] || req.user?.email;
+    const transactionId = req.query.transactionId || req.headers["x-transaction-id"];
+    
+    if (userEmail || transactionId) {
+      const accessReq = await NewsletterAccessRequest.findOne({
+        newsletterId: newsletter._id,
+        status: "approved",
+        $or: [
+          ...(userEmail ? [{ userEmail: String(userEmail).toLowerCase().trim() }] : []),
+          ...(transactionId ? [{ transactionId: String(transactionId).trim() }] : [])
+        ]
+      });
+      if (accessReq) {
+        isAccessGranted = true;
+      }
+    }
+  }
+
+  const result = newsletter.toObject();
+  if (!isAccessGranted) {
+    result.content = ""; // Withhold full text if unapproved
+    result.isLocked = true;
+  } else {
+    result.isLocked = false;
+  }
+
+  res.json({ success: true, newsletter: result, isAccessGranted });
 });
 
 export const createNewsletter = asyncHandler(async (req, res) => {
@@ -109,6 +140,8 @@ export const createNewsletter = asyncHandler(async (req, res) => {
 
   const readingTime = calculateReadingTime(body.content);
   const slug = body.slug || await uniqueSlug(body.title);
+  const price = Math.max(Number(body.price || 0), 0);
+  const isPaid = price > 0;
 
   const newsletter = await Newsletter.create({
     title: body.title,
@@ -121,6 +154,8 @@ export const createNewsletter = asyncHandler(async (req, res) => {
     publishedAt: body.publishedAt ? new Date(body.publishedAt) : new Date(),
     readingTime,
     fontFamily: body.fontFamily || "Outfit",
+    price,
+    isPaid,
     categories: parseCategories(body.categories)
   });
 
@@ -148,6 +183,12 @@ export const updateNewsletter = asyncHandler(async (req, res) => {
 
   if (body.categories !== undefined) {
     updates.categories = parseCategories(body.categories);
+  }
+
+  if (body.price !== undefined) {
+    const price = Math.max(Number(body.price || 0), 0);
+    updates.price = price;
+    updates.isPaid = price > 0;
   }
 
   const coverFile = getFile(req.files, "cover");
@@ -183,3 +224,109 @@ export const uploadInlineImage = asyncHandler(async (req, res) => {
     url: result.url
   });
 });
+
+export const submitAccessRequest = asyncHandler(async (req, res) => {
+  const { newsletterId, userName, userEmail, userPhone, transactionId } = req.body;
+
+  const newsletter = await Newsletter.findById(newsletterId);
+  if (!newsletter) throw new ApiError(404, "Story not found.");
+  if (!newsletter.isPaid || (newsletter.price || 0) === 0) {
+    throw new ApiError(400, "This story is free and does not require payment verification.");
+  }
+
+  const existing = await NewsletterAccessRequest.findOne({
+    newsletterId,
+    $or: [{ transactionId: transactionId.trim() }, { userEmail: userEmail.toLowerCase().trim() }]
+  });
+
+  if (existing) {
+    if (existing.status === "approved") {
+      return res.json({ success: true, message: "Payment already approved!", request: existing });
+    }
+    existing.userName = userName;
+    existing.userPhone = userPhone;
+    existing.transactionId = transactionId;
+    existing.status = "pending";
+    await existing.save();
+    return res.json({ success: true, message: "Payment request submitted for verification.", request: existing });
+  }
+
+  const accessRequest = await NewsletterAccessRequest.create({
+    newsletterId,
+    userName,
+    userEmail: userEmail.toLowerCase().trim(),
+    userPhone,
+    transactionId,
+    amount: newsletter.price,
+    status: "pending"
+  });
+
+  res.status(201).json({ success: true, message: "Payment request submitted for verification.", request: accessRequest });
+});
+
+export const checkAccessStatus = asyncHandler(async (req, res) => {
+  const { newsletterId, userEmail, transactionId } = req.query;
+  if (!newsletterId) throw new ApiError(400, "Newsletter ID is required.");
+
+  if (!userEmail && !transactionId) {
+    return res.json({ success: true, status: "none", approved: false });
+  }
+
+  const accessReq = await NewsletterAccessRequest.findOne({
+    newsletterId,
+    $or: [
+      ...(userEmail ? [{ userEmail: String(userEmail).toLowerCase().trim() }] : []),
+      ...(transactionId ? [{ transactionId: String(transactionId).trim() }] : [])
+    ]
+  }).sort({ createdAt: -1 });
+
+  if (!accessReq) {
+    return res.json({ success: true, status: "none", approved: false });
+  }
+
+  res.json({
+    success: true,
+    status: accessReq.status,
+    approved: accessReq.status === "approved",
+    request: accessReq
+  });
+});
+
+export const listAccessRequests = asyncHandler(async (req, res) => {
+  const { status } = req.query;
+  const filter = {};
+  if (status) filter.status = status;
+
+  const requests = await NewsletterAccessRequest.find(filter)
+    .populate("newsletterId", "title price slug author cover")
+    .sort({ createdAt: -1 });
+
+  res.json({ success: true, requests });
+});
+
+export const updateAccessRequestStatus = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { status, adminNote } = req.body;
+
+  if (!["approved", "rejected", "pending"].includes(status)) {
+    throw new ApiError(400, "Invalid status.");
+  }
+
+  const accessReq = await NewsletterAccessRequest.findById(id);
+  if (!accessReq) throw new ApiError(404, "Access request not found.");
+
+  accessReq.status = status;
+  if (adminNote !== undefined) accessReq.adminNote = adminNote;
+
+  if (status === "approved") {
+    accessReq.approvedAt = new Date();
+    accessReq.approvedBy = req.user?._id;
+  } else if (status === "rejected") {
+    accessReq.rejectedAt = new Date();
+    accessReq.rejectedBy = req.user?._id;
+  }
+
+  await accessReq.save();
+  res.json({ success: true, request: accessReq });
+});
+

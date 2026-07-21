@@ -240,6 +240,7 @@ export const newsletterCreateSchema = {
     status: Joi.string().valid("draft", "published").default("draft"),
     publishedAt: Joi.date(),
     fontFamily: Joi.string().trim().max(100).allow("").default("Outfit"),
+    price: Joi.number().min(0).default(0),
     categories: Joi.alternatives().try(Joi.string().allow(""), Joi.array().items(Joi.string())).allow(null, "")
   }).required()
 };
@@ -255,8 +256,21 @@ export const newsletterUpdateSchema = {
     status: Joi.string().valid("draft", "published"),
     publishedAt: Joi.date(),
     fontFamily: Joi.string().trim().max(100).allow(""),
+    price: Joi.number().min(0),
     categories: Joi.alternatives().try(Joi.string().allow(""), Joi.array().items(Joi.string())).allow(null, "")
   }).min(1)
+};
+
+export const newsletterAccessRequestSchema = {
+  body: Joi.object({
+    newsletterId: objectIdSchema,
+    userName: Joi.string().trim().max(120).required(),
+    userEmail: emailSchema,
+    userPhone: Joi.string().trim().pattern(/^[0-9]+$/).min(8).max(20).required().messages({
+      "string.pattern.base": "Phone number must contain only numbers."
+    }),
+    transactionId: Joi.string().trim().max(100).required()
+  }).required()
 };
 
 export const categoryCreateSchema = {

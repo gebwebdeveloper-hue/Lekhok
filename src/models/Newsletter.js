@@ -24,6 +24,8 @@ const newsletterSchema = new mongoose.Schema(
     publishedAt: { type: Date, default: Date.now },
     readingTime: { type: Number, default: 0 },
     fontFamily: { type: String, default: "Outfit", trim: true },
+    price: { type: Number, default: 0, min: 0 },
+    isPaid: { type: Boolean, default: false },
     categories: [{ type: mongoose.Schema.Types.ObjectId, ref: "Category", index: true }]
   },
   { timestamps: true }

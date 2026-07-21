@@ -4,6 +4,7 @@ import { NewsletterAccessRequest } from "../models/NewsletterAccessRequest.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../middlewares/error.middleware.js";
 import { persistUploadedFile } from "../services/storage.service.js";
+import { sendStoryAccessRequestEmail, sendStoryAccessApprovalEmail } from "../services/mail.service.js";
 
 function getFile(files, key) {
   return files?.[key]?.[0];
@@ -248,6 +249,7 @@ export const submitAccessRequest = asyncHandler(async (req, res) => {
     existing.transactionId = transactionId;
     existing.status = "pending";
     await existing.save();
+    sendStoryAccessRequestEmail({ request: existing, story: newsletter }).catch(console.error);
     return res.json({ success: true, message: "Payment request submitted for verification.", request: existing });
   }
 
@@ -260,6 +262,8 @@ export const submitAccessRequest = asyncHandler(async (req, res) => {
     amount: newsletter.price,
     status: "pending"
   });
+
+  sendStoryAccessRequestEmail({ request: accessRequest, story: newsletter }).catch(console.error);
 
   res.status(201).json({ success: true, message: "Payment request submitted for verification.", request: accessRequest });
 });
@@ -312,7 +316,7 @@ export const updateAccessRequestStatus = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid status.");
   }
 
-  const accessReq = await NewsletterAccessRequest.findById(id);
+  const accessReq = await NewsletterAccessRequest.findById(id).populate("newsletterId");
   if (!accessReq) throw new ApiError(404, "Access request not found.");
 
   accessReq.status = status;
@@ -327,6 +331,11 @@ export const updateAccessRequestStatus = asyncHandler(async (req, res) => {
   }
 
   await accessReq.save();
+
+  if (accessReq.newsletterId) {
+    sendStoryAccessApprovalEmail({ request: accessReq, story: accessReq.newsletterId }).catch(console.error);
+  }
+
   res.json({ success: true, request: accessReq });
 });
 

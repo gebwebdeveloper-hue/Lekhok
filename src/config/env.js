@@ -36,7 +36,7 @@ export const env = {
     secure: process.env.SMTP_SECURE === "true",
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
-    from: process.env.MAIL_FROM || "LEKHAK <no-reply@lekhak.local>"
+    from: process.env.MAIL_FROM || "Lekhok Tripura <no-reply@lekhoktripura.in>"
   },
   adminEmails: (process.env.ADMIN_EMAILS || "").split(",").map((email) => email.trim().toLowerCase()).filter(Boolean),
   upiId: process.env.UPI_ID || "",

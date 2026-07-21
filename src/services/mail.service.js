@@ -26,7 +26,7 @@ function getTransport() {
 export function sendEmailViaResend({ to, subject, html, text, attachments }) {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify({
-      from: env.smtp.from || "LEKHOK <no-reply@lekhoktripura.in>",
+      from: env.smtp.from || "Lekhok Tripura <no-reply@lekhoktripura.in>",
       to,
       subject,
       html,
@@ -100,7 +100,7 @@ export async function sendOtpEmail(email, otp) {
 
   // Fallback to SMTP
   const info = await getTransport().sendMail({
-    from: env.smtp.from || "LEKHAK <no-reply@lekhoktripura.in>",
+    from: env.smtp.from || "Lekhok Tripura <onboarding@resend.dev>",
     to: email,
     subject: "Your LEKHAK login OTP",
     html: htmlContent,
@@ -563,3 +563,124 @@ export async function sendSubscriptionEmail(email) {
 
   return info;
 }
+
+export async function sendStoryAccessRequestEmail({ request, story }) {
+  const recipients = env.adminEmails;
+  if (!recipients.length) {
+    console.warn("[Email] Story access request email skipped: ADMIN_EMAILS is not configured.");
+    return { skipped: true };
+  }
+
+  const subject = `New Story Payment Request (₹${story.price}) - ${story.title}`;
+  const htmlContent = `
+    <div style="font-family:Inter,Arial,sans-serif;background:#050505;color:#ffffff;padding:28px;border-radius:18px;max-width:720px">
+      <p style="letter-spacing:0.24em;text-transform:uppercase;color:#38bdf8;font-size:12px;margin:0 0 10px">LEKHOK TRIPURA PAID STORY</p>
+      <h1 style="font-size:24px;margin:0 0 6px">New Story Payment Verification Request</h1>
+      <p style="color:#a1a1aa;margin:0 0 24px">A reader submitted a payment transaction reference for story access.</p>
+
+      <table style="width:100%;border-collapse:collapse;background:#0d0d0d;border:1px solid #1f2937;border-radius:14px;overflow:hidden">
+        ${detailRow("Story Title", story.title)}
+        ${detailRow("Amount", `₹${story.price}`)}
+        ${detailRow("Reader Name", request.userName)}
+        ${detailRow("Reader Email", request.userEmail)}
+        ${detailRow("Reader Phone", request.userPhone)}
+        ${detailRow("UPI Transaction ID / UTR", request.transactionId)}
+        ${detailRow("Status", request.status)}
+      </table>
+    </div>
+  `;
+
+  const textContent = [
+    `New Story Payment Verification Request`,
+    `Story: ${story.title}`,
+    `Amount: ₹${story.price}`,
+    `Reader Name: ${request.userName}`,
+    `Reader Email: ${request.userEmail}`,
+    `Reader Phone: ${request.userPhone}`,
+    `Transaction ID / UTR: ${request.transactionId}`
+  ].join("\n");
+
+  if (env.resendApiKey) {
+    try {
+      console.log(`[Email] Sending story access request to admins via Resend...`);
+      return await sendEmailViaResend({
+        to: recipients,
+        subject,
+        html: htmlContent,
+        text: textContent
+      });
+    } catch (error) {
+      console.error("[Email] Failed to send story access request email via Resend:", error);
+    }
+  }
+
+  return await getTransport().sendMail({
+    from: env.smtp.from || "Lekhok Tripura <no-reply@lekhoktripura.in>",
+    to: recipients,
+    subject,
+    html: htmlContent,
+    text: textContent
+  });
+}
+
+export async function sendStoryAccessApprovalEmail({ request, story }) {
+  const recipient = request.userEmail;
+  if (!recipient) return { skipped: true };
+
+  const isApproved = request.status === "approved";
+  const subject = isApproved
+    ? `Access Approved for "${story.title}" - Lekhok Tripura`
+    : `Access Request Update for "${story.title}" - Lekhok Tripura`;
+
+  const htmlContent = `
+    <div style="font-family:Inter,Arial,sans-serif;background:#050505;color:#ffffff;padding:28px;border-radius:18px;max-width:720px">
+      <p style="letter-spacing:0.24em;text-transform:uppercase;color:${isApproved ? '#34d399' : '#f87171'};font-size:12px;margin:0 0 10px">LEKHOK TRIPURA</p>
+      <h1 style="font-size:24px;margin:0 0 6px">${isApproved ? 'Story Access Granted!' : 'Story Access Update'}</h1>
+      <p style="color:#a1a1aa;margin:0 0 24px">Hello ${escapeHtml(request.userName)},</p>
+      <p style="color:#e2e8f0;line-height:1.6;margin:0 0 20px">
+        ${isApproved 
+          ? `Your payment of ₹${story.price} for the story <strong>"${escapeHtml(story.title)}"</strong> has been verified and approved!`
+          : `Your access request for <strong>"${escapeHtml(story.title)}"</strong> has been updated to: <strong>${request.status}</strong>.`}
+      </p>
+
+      <table style="width:100%;border-collapse:collapse;background:#0d0d0d;border:1px solid #1f2937;border-radius:14px;overflow:hidden;margin-bottom:24px">
+        ${detailRow("Story Title", story.title)}
+        ${detailRow("Transaction ID / UTR", request.transactionId)}
+        ${detailRow("Status", request.status)}
+      </table>
+
+      ${isApproved ? `
+        <div style="text-align:center;margin-top:28px">
+          <a href="${env.clientUrl}/short-stories/${story.slug}" style="background:#38bdf8;color:#000000;padding:14px 28px;border-radius:12px;font-weight:bold;text-decoration:none;display:inline-block">Read Story Now</a>
+        </div>
+      ` : ''}
+    </div>
+  `;
+
+  const textContent = isApproved
+    ? `Your story access for "${story.title}" has been approved! Read now: ${env.clientUrl}/short-stories/${story.slug}`
+    : `Your story access request for "${story.title}" status: ${request.status}`;
+
+  if (env.resendApiKey) {
+    try {
+      console.log(`[Email] Sending story access notification to reader (${recipient}) via Resend...`);
+      return await sendEmailViaResend({
+        to: [recipient],
+        subject,
+        html: htmlContent,
+        text: textContent
+      });
+    } catch (error) {
+      console.error("[Email] Failed to send story access notification email via Resend:", error);
+    }
+  }
+
+  return await getTransport().sendMail({
+    from: env.smtp.from || "Lekhok Tripura <no-reply@lekhoktripura.in>",
+    to: recipient,
+    subject,
+    html: htmlContent,
+    text: textContent
+  });
+}
+

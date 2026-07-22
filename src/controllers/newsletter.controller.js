@@ -47,7 +47,7 @@ function parseCategories(categories) {
 }
 
 export const listNewsletters = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 12, all = "false", categories } = req.query;
+  const { page = 1, limit, all = "false", categories } = req.query;
   
   const filter = {};
   // Only admin can see drafts, others see only published
@@ -65,7 +65,10 @@ export const listNewsletters = asyncHandler(async (req, res) => {
   }
 
   const pageNumber = Math.max(Number(page), 1);
-  const pageSize = Math.min(Math.max(Number(limit), 1), 100);
+  const defaultLimit = all === "true" ? 1000 : 12;
+  const requestedLimit = Number(limit || defaultLimit);
+  const maxLimit = (all === "true" || isAdmin) ? 1000 : 100;
+  const pageSize = Math.min(Math.max(requestedLimit, 1), maxLimit);
 
   const [newsletters, total] = await Promise.all([
     Newsletter.find(filter)

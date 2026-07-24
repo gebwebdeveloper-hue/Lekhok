@@ -106,6 +106,31 @@ export const purchaseCreateSchema = {
   }).required()
 };
 
+export const batchPurchaseSchema = {
+  body: Joi.object({
+    items: Joi.alternatives().try(
+      Joi.string(), // if sent as JSON string in FormData
+      Joi.array().items(
+        Joi.object({
+          bookId: objectIdSchema,
+          format: Joi.string().valid("ebook", "paperback", "hardcover").default("ebook")
+        })
+      )
+    ).required(),
+    transactionNumber: Joi.string().trim().pattern(/^[0-9]+$/).max(100).required().messages({
+      "string.pattern.base": "Transaction number must contain only numbers."
+    }),
+    note: Joi.string().trim().max(500).allow(""),
+    co: Joi.string().trim().max(120).allow(""),
+    country: Joi.string().trim().max(80).default("India"),
+    district: Joi.string().trim().max(80).allow(""),
+    block: Joi.string().trim().max(80).allow(""),
+    pin: Joi.string().trim().max(10).allow(""),
+    postOffice: Joi.string().trim().max(80).allow(""),
+    nearbyLocation: Joi.string().trim().max(200).allow("")
+  }).required()
+};
+
 export const adminNoteSchema = {
   params: Joi.object({ id: objectIdSchema }).required(),
   body: Joi.object({ adminNote: Joi.string().trim().max(500).allow("") }).default({})

@@ -161,3 +161,77 @@ export const updatePaymentConfig = asyncHandler(async (req, res) => {
   });
 });
 
+export const createBatchPurchaseRequests = asyncHandler(async (req, res) => {
+  let items = req.body.items;
+  if (typeof items === "string") {
+    try {
+      items = JSON.parse(items);
+    } catch {
+      items = [];
+    }
+  }
+
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    throw new ApiError(400, "No valid items in cart to purchase.");
+  }
+
+  const { transactionNumber, note, co, country, district, block, pin, postOffice, nearbyLocation } = req.body;
+  const screenshot = await persistUploadedFile(req.file, "payments", "image");
+  const createdPurchases = [];
+
+  for (const item of items) {
+    const book = await Book.findById(item.bookId);
+    if (!book) continue;
+
+    const format = item.format || "ebook";
+    const isEbook = format === "ebook";
+
+    const approved = isEbook
+      ? await PurchaseRequest.exists({ userId: req.user._id, bookId: book._id, format: "ebook", status: "approved" })
+      : null;
+    if (approved) continue;
+
+    const amount = format === "paperback"
+      ? (book.paperbackPrice || book.price)
+      : format === "hardcover"
+      ? (book.hardcoverPrice || book.price)
+      : book.price;
+
+    const purchase = await PurchaseRequest.create({
+      userId: req.user._id,
+      bookId: book._id,
+      amount,
+      paymentScreenshot: screenshot,
+      format,
+      transactionNumber,
+      note: note || `Cart purchase for ${book.title} (${format.toUpperCase()})`,
+      deliveryAddress: isEbook ? undefined : {
+        co,
+        country: country || "India",
+        district,
+        block,
+        pin,
+        postOffice,
+        nearbyLocation
+      }
+    });
+
+    if (!isEbook) {
+      try {
+        await sendPhysicalOrderEmail({ purchase, book, user: req.user });
+      } catch (error) {
+        console.error("[Email] Failed to notify admin about physical order:", error);
+      }
+    }
+
+    createdPurchases.push(purchase);
+  }
+
+  res.status(201).json({
+    success: true,
+    purchases: createdPurchases,
+    payment: { upiId: env.upiId, qr: env.upiQrImageUrl }
+  });
+});
+
+

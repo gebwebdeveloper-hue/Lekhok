@@ -86,6 +86,8 @@ export const createBook = asyncHandler(async (req, res) => {
     author: body.author,
     description: body.description,
     price: Number(body.price),
+    paperbackPrice: body.paperbackPrice ? Number(body.paperbackPrice) : 0,
+    hardcoverPrice: body.hardcoverPrice ? Number(body.hardcoverPrice) : 0,
     category: body.category,
     language: body.language || "English",
     pages: Number(body.pages),
@@ -115,6 +117,8 @@ export const updateBook = asyncHandler(async (req, res) => {
   const updates = { ...body };
   if (body.title && body.title !== book.title) updates.slug = body.slug || await uniqueSlug(body.title, book._id);
   if (body.price !== undefined) updates.price = Number(body.price);
+  if (body.paperbackPrice !== undefined) updates.paperbackPrice = body.paperbackPrice ? Number(body.paperbackPrice) : 0;
+  if (body.hardcoverPrice !== undefined) updates.hardcoverPrice = body.hardcoverPrice ? Number(body.hardcoverPrice) : 0;
   if (body.pages !== undefined) updates.pages = Number(body.pages);
   if (body.tags !== undefined) updates.tags = parseTags(body.tags);
   if (body.featured !== undefined) updates.featured = body.featured === "true" || body.featured === true;

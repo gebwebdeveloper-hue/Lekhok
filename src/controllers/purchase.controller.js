@@ -23,10 +23,16 @@ export const createPurchaseRequest = asyncHandler(async (req, res) => {
   if (existingPending) return res.status(200).json({ success: true, purchase: existingPending, payment: { upiId: env.upiId, qr: env.upiQrImageUrl } });
 
   const screenshot = await persistUploadedFile(req.file, "payments", "image");
+  const amount = format === "paperback"
+    ? (book.paperbackPrice || book.price)
+    : format === "hardcover"
+    ? (book.hardcoverPrice || book.price)
+    : book.price;
+
   const purchase = await PurchaseRequest.create({
     userId: req.user._id,
     bookId: book._id,
-    amount: book.price,
+    amount,
     paymentScreenshot: screenshot,
     format,
     transactionNumber: req.body.transactionNumber,

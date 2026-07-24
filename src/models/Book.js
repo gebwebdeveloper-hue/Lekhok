@@ -19,6 +19,8 @@ const bookSchema = new mongoose.Schema(
     author: { type: String, required: true, trim: true, maxlength: 120 },
     description: { type: String, required: true, trim: true, maxlength: 6000 },
     price: { type: Number, required: true, min: 0 },
+    paperbackPrice: { type: Number, default: 0, min: 0 },
+    hardcoverPrice: { type: Number, default: 0, min: 0 },
     category: { type: String, required: true, trim: true, index: true },
     language: { type: String, default: "English", trim: true },
     pages: { type: Number, required: false, min: 0, default: 0 },

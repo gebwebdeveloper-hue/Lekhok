@@ -30,7 +30,30 @@ const purchaseRequestSchema = new mongoose.Schema(
     approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     approvedAt: Date,
     rejectedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-    rejectedAt: Date
+    rejectedAt: Date,
+
+    // Shipment & Physical Order Tracking
+    shipmentStatus: {
+      type: String,
+      enum: ["processing", "packed", "shipped", "out_for_delivery", "delivered"],
+      default: "processing",
+      index: true
+    },
+    courierService: { type: String, trim: true, maxlength: 100 },
+    trackingNumber: { type: String, trim: true, maxlength: 100 },
+    trackingUrl: { type: String, trim: true, maxlength: 500 },
+    currentLocation: { type: String, trim: true, maxlength: 200 },
+    estimatedDeliveryDate: Date,
+    shippedAt: Date,
+    deliveredAt: Date,
+    shipmentHistory: [
+      {
+        status: { type: String, required: true },
+        location: { type: String, trim: true, maxlength: 200 },
+        note: { type: String, trim: true, maxlength: 500 },
+        timestamp: { type: Date, default: Date.now }
+      }
+    ]
   },
   { timestamps: true }
 );

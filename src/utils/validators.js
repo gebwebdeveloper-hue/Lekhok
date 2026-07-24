@@ -136,6 +136,19 @@ export const adminNoteSchema = {
   body: Joi.object({ adminNote: Joi.string().trim().max(500).allow("") }).default({})
 };
 
+export const updateShipmentSchema = {
+  params: Joi.object({ id: objectIdSchema }).required(),
+  body: Joi.object({
+    shipmentStatus: Joi.string().valid("processing", "packed", "shipped", "out_for_delivery", "delivered").required(),
+    courierService: Joi.string().trim().max(100).allow(""),
+    trackingNumber: Joi.string().trim().max(100).allow(""),
+    trackingUrl: Joi.string().trim().max(500).allow(""),
+    currentLocation: Joi.string().trim().max(200).allow(""),
+    estimatedDeliveryDate: Joi.date().allow(null, ""),
+    note: Joi.string().trim().max(500).allow("")
+  }).required()
+};
+
 export const readerBookParamSchema = {
   params: Joi.object({ bookId: objectIdSchema }).required()
 };

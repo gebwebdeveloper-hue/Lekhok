@@ -234,4 +234,51 @@ export const createBatchPurchaseRequests = asyncHandler(async (req, res) => {
   });
 });
 
+export const updateShipmentStatus = asyncHandler(async (req, res) => {
+  const purchase = await PurchaseRequest.findById(req.params.id);
+  if (!purchase) throw new ApiError(404, "Purchase request not found.");
+
+  const {
+    shipmentStatus,
+    courierService,
+    trackingNumber,
+    trackingUrl,
+    currentLocation,
+    estimatedDeliveryDate,
+    note
+  } = req.body;
+
+  if (shipmentStatus) purchase.shipmentStatus = shipmentStatus;
+  if (courierService !== undefined) purchase.courierService = courierService;
+  if (trackingNumber !== undefined) purchase.trackingNumber = trackingNumber;
+  if (trackingUrl !== undefined) purchase.trackingUrl = trackingUrl;
+  if (currentLocation !== undefined) purchase.currentLocation = currentLocation;
+  if (estimatedDeliveryDate !== undefined) {
+    purchase.estimatedDeliveryDate = estimatedDeliveryDate ? new Date(estimatedDeliveryDate) : null;
+  }
+
+  if (shipmentStatus === "shipped" && !purchase.shippedAt) {
+    purchase.shippedAt = new Date();
+  }
+  if (shipmentStatus === "delivered" && !purchase.deliveredAt) {
+    purchase.deliveredAt = new Date();
+  }
+
+  if (!purchase.shipmentHistory) purchase.shipmentHistory = [];
+  purchase.shipmentHistory.push({
+    status: shipmentStatus || purchase.shipmentStatus || "processing",
+    location: currentLocation || purchase.currentLocation || "Warehouse",
+    note: note || `Shipment status updated to ${shipmentStatus || purchase.shipmentStatus}`,
+    timestamp: new Date()
+  });
+
+  await purchase.save();
+
+  res.json({
+    success: true,
+    message: "Shipment status and tracking details updated successfully.",
+    purchase
+  });
+});
+
 

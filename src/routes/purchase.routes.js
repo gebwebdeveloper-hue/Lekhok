@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { adminPurchases, approvePurchase, createPurchaseRequest, createBatchPurchaseRequests, myPurchases, rejectPurchase, getPaymentConfig, updatePaymentConfig, updateShipmentStatus } from "../controllers/purchase.controller.js";
+import { adminPurchases, approvePurchase, createPurchaseRequest, createBatchPurchaseRequests, myPurchases, rejectPurchase, getPaymentConfig, updatePaymentConfig, updateShipmentStatus, getPurchaseInvoice } from "../controllers/purchase.controller.js";
 import { requireAuth, requireRole } from "../middlewares/auth.middleware.js";
 import { paymentUpload, upload } from "../middlewares/upload.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
@@ -15,6 +15,7 @@ router.post("/", requireAuth, paymentUpload, validate(purchaseCreateSchema), cre
 router.post("/batch", requireAuth, paymentUpload, validate(batchPurchaseSchema), createBatchPurchaseRequests);
 router.get("/me", requireAuth, myPurchases);
 router.get("/admin", requireAuth, requireRole("admin"), adminPurchases);
+router.get("/:id/invoice", requireAuth, getPurchaseInvoice);
 router.patch("/:id/approve", requireAuth, requireRole("admin"), validate(adminNoteSchema), approvePurchase);
 router.patch("/:id/reject", requireAuth, requireRole("admin"), validate(adminNoteSchema), rejectPurchase);
 router.patch("/:id/shipment", requireAuth, requireRole("admin"), validate(updateShipmentSchema), updateShipmentStatus);

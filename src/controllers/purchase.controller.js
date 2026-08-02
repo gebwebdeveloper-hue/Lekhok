@@ -1,10 +1,12 @@
+import crypto from "crypto";
+import Razorpay from "razorpay";
 import { Book } from "../models/Book.js";
 import { PurchaseRequest } from "../models/PurchaseRequest.js";
 import { PaymentConfig } from "../models/PaymentConfig.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../middlewares/error.middleware.js";
 import { persistUploadedFile } from "../services/storage.service.js";
-import { sendPhysicalOrderEmail } from "../services/mail.service.js";
+import { sendPhysicalOrderEmail, sendPurchaseConfirmationEmail } from "../services/mail.service.js";
 import { env } from "../config/env.js";
 
 export const createPurchaseRequest = asyncHandler(async (req, res) => {
@@ -452,5 +454,227 @@ export const getPurchaseInvoice = asyncHandler(async (req, res) => {
   res.setHeader("Content-Security-Policy", "default-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; script-src-attr 'unsafe-inline'; style-src 'self' 'unsafe-inline';");
   res.send(html);
 });
+
+// ─── Razorpay Automated Order Creation ───────────────────────────────────────
+export const createRazorpayOrder = asyncHandler(async (req, res) => {
+  const keyId = env.razorpayKeyId;
+  const keySecret = env.razorpayKeySecret;
+
+  if (!keyId || !keySecret) {
+    throw new ApiError(500, "Razorpay API keys are not configured on the server. Please check RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in .env");
+  }
+
+  let items = req.body.items;
+  if (typeof items === "string") {
+    try {
+      items = JSON.parse(items);
+    } catch {
+      items = [];
+    }
+  }
+
+  // Support single item or cart array
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    if (req.body.bookId) {
+      items = [{
+        bookId: req.body.bookId,
+        format: req.body.format || "ebook"
+      }];
+    }
+  }
+
+  if (!items || items.length === 0) {
+    throw new ApiError(400, "No valid book items provided for checkout.");
+  }
+
+  const { co, country, district, block, pin, postOffice, nearbyLocation, note } = req.body;
+  let totalAmountINR = 0;
+  const itemsToPurchase = [];
+
+  for (const item of items) {
+    const book = await Book.findById(item.bookId);
+    if (!book) continue;
+
+    const format = item.format || "ebook";
+    const isEbook = format === "ebook";
+
+    // If ebook already purchased & approved, skip
+    const approved = isEbook
+      ? await PurchaseRequest.exists({ userId: req.user._id, bookId: book._id, format: "ebook", status: "approved" })
+      : null;
+    if (approved) continue;
+
+    const itemPrice = format === "paperback"
+      ? (book.paperbackPrice || book.price)
+      : format === "hardcover"
+      ? (book.hardcoverPrice || book.price)
+      : book.price;
+
+    totalAmountINR += itemPrice;
+    itemsToPurchase.push({ book, format, price: itemPrice });
+  }
+
+  if (itemsToPurchase.length === 0) {
+    throw new ApiError(400, "All items in cart have already been purchased and unlocked.");
+  }
+
+  const amountInPaise = Math.round(totalAmountINR * 100);
+  const receipt = `order_${Date.now()}_${req.user._id.toString().slice(-4)}`;
+
+  let razorpayOrder;
+  const instance = new Razorpay({ key_id: keyId, key_secret: keySecret });
+  try {
+    razorpayOrder = await instance.orders.create({
+      amount: amountInPaise,
+      currency: "INR",
+      receipt,
+      notes: {
+        userId: req.user._id.toString(),
+        userEmail: req.user.email
+      }
+    });
+  } catch (err) {
+    console.error("[Razorpay Order Error]:", err);
+    throw new ApiError(500, err.message || "Failed to create Razorpay Order.");
+  }
+
+  const createdPurchases = [];
+  for (const item of itemsToPurchase) {
+    const isEbook = item.format === "ebook";
+    let purchase = await PurchaseRequest.findOne({
+      userId: req.user._id,
+      bookId: item.book._id,
+      format: item.format,
+      status: "pending"
+    });
+
+    if (purchase) {
+      purchase.amount = item.price;
+      purchase.paymentMethod = "razorpay";
+      purchase.razorpayOrderId = razorpayOrder.id;
+      purchase.note = note || `Automated Razorpay Checkout for ${item.book.title} (${item.format.toUpperCase()})`;
+      if (!isEbook) {
+        purchase.deliveryAddress = {
+          co,
+          country: country || "India",
+          district,
+          block,
+          pin,
+          postOffice,
+          nearbyLocation
+        };
+      }
+      await purchase.save();
+    } else {
+      purchase = await PurchaseRequest.create({
+        userId: req.user._id,
+        bookId: item.book._id,
+        amount: item.price,
+        format: item.format,
+        status: "pending",
+        paymentMethod: "razorpay",
+        razorpayOrderId: razorpayOrder.id,
+        note: note || `Automated Razorpay Checkout for ${item.book.title} (${item.format.toUpperCase()})`,
+        deliveryAddress: isEbook ? undefined : {
+          co,
+          country: country || "India",
+          district,
+          block,
+          pin,
+          postOffice,
+          nearbyLocation
+        }
+      });
+    }
+    createdPurchases.push(purchase);
+  }
+
+  res.status(201).json({
+    success: true,
+    orderId: razorpayOrder.id,
+    amount: razorpayOrder.amount,
+    currency: razorpayOrder.currency || "INR",
+    keyId,
+    purchaseIds: createdPurchases.map(p => p._id)
+  });
+});
+
+// ─── Razorpay Payment HMAC Verification & Auto Access Granting ─────────────────
+export const verifyRazorpayPayment = asyncHandler(async (req, res) => {
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+
+  if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+    throw new ApiError(400, "Missing Razorpay payment verification parameters.");
+  }
+
+  const keySecret = env.razorpayKeySecret;
+  if (!keySecret) {
+    throw new ApiError(500, "Razorpay Secret Key is missing on backend.");
+  }
+
+  // 1. Verify HMAC SHA-256 signature
+  const body = razorpay_order_id + "|" + razorpay_payment_id;
+  const expectedSignature = crypto
+    .createHmac("sha256", keySecret)
+    .update(body.toString())
+    .digest("hex");
+
+  const isAuthentic = expectedSignature === razorpay_signature;
+
+  if (!isAuthentic) {
+    throw new ApiError(400, "Invalid Razorpay payment signature. Payment verification failed.");
+  }
+
+  // 2. Find pending purchase requests associated with this Razorpay order ID
+  const purchases = await PurchaseRequest.find({
+    userId: req.user._id,
+    razorpayOrderId: razorpay_order_id
+  }).populate("bookId");
+
+  if (!purchases || purchases.length === 0) {
+    throw new ApiError(404, "No purchase requests found for this Razorpay order.");
+  }
+
+  // 3. Mark purchases as approved & grant instant access
+  const updatedPurchases = [];
+  for (const purchase of purchases) {
+    purchase.status = "approved";
+    purchase.razorpayPaymentId = razorpay_payment_id;
+    purchase.razorpaySignature = razorpay_signature;
+    purchase.transactionNumber = razorpay_payment_id;
+    purchase.approvedAt = new Date();
+    purchase.approvedBy = req.user._id;
+
+    if (purchase.format !== "ebook") {
+      purchase.shipmentStatus = "processing";
+      try {
+        await sendPhysicalOrderEmail({ purchase, book: purchase.bookId, user: req.user });
+      } catch (err) {
+        console.error("[Email Error]: Failed to notify admin for physical order:", err);
+      }
+    }
+
+    await purchase.save();
+    updatedPurchases.push(purchase);
+  }
+
+  // 4. Send email confirmation to the reader
+  try {
+    await sendPurchaseConfirmationEmail({
+      user: req.user,
+      purchases: updatedPurchases,
+      paymentId: razorpay_payment_id
+    });
+  } catch (emailErr) {
+    console.error("[Email Error] Failed to send purchase confirmation email to reader:", emailErr);
+  }
+
+  res.json({
+    success: true,
+    message: "Payment verified successfully! Access granted.",
+    purchases: updatedPurchases
+  });
+});
+
 
 

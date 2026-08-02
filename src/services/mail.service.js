@@ -684,3 +684,103 @@ export async function sendStoryAccessApprovalEmail({ request, story }) {
   });
 }
 
+export async function sendPurchaseConfirmationEmail({ user, purchases, paymentId }) {
+  const recipient = user?.email;
+  if (!recipient) return { skipped: true };
+
+  const totalPaid = purchases.reduce((acc, p) => acc + (p.amount || 0), 0);
+  const subject = `Order Confirmation & Receipt - ₹${totalPaid} Paid - Lekhok Tripura`;
+
+  const itemsHtml = purchases.map((p) => {
+    const book = p.bookId || {};
+    const formatUpper = (p.format || "ebook").toUpperCase();
+
+    return `
+      <tr>
+        <td style="padding:14px 16px;border-bottom:1px solid #1f2937">
+          <strong style="color:#ffffff;font-size:14px">${escapeHtml(book.title || "Book")}</strong><br/>
+          <span style="color:#94a3b8;font-size:12px">Author: ${escapeHtml(book.author || "Lekhok Tripura")}</span>
+        </td>
+        <td style="padding:14px 16px;border-bottom:1px solid #1f2937;color:#38bdf8;font-weight:bold;font-size:12px">${formatUpper}</td>
+        <td style="padding:14px 16px;border-bottom:1px solid #1f2937;color:#34d399;font-weight:bold;font-size:12px;text-align:right">₹${p.amount}</td>
+      </tr>
+    `;
+  }).join("");
+
+  const htmlContent = `
+    <div style="font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#050505;color:#ffffff;padding:32px;border-radius:18px;max-width:680px;margin:0 auto;border:1px solid #1f2937">
+      <div style="text-align:center;padding-bottom:24px;border-bottom:2px solid #06b6d4;margin-bottom:24px">
+        <p style="letter-spacing:0.25em;text-transform:uppercase;color:#38bdf8;font-size:12px;font-weight:bold;margin:0 0 6px">LEKHOK TRIPURA</p>
+        <h1 style="font-size:26px;color:#ffffff;margin:0;font-weight:800">Payment Successful!</h1>
+        <p style="color:#94a3b8;font-size:13px;margin-top:6px">Thank you for your purchase. Your order has been confirmed.</p>
+      </div>
+
+      <p style="color:#e2e8f0;font-size:14px;line-height:1.6;margin-bottom:20px">
+        Hello <strong>${escapeHtml(user.name || "Reader")}</strong>,
+      </p>
+      <p style="color:#94a3b8;font-size:13px;line-height:1.6;margin-bottom:24px">
+        We have successfully received your payment of <strong>₹${totalPaid}</strong> via Razorpay. Your digital eBooks have been unlocked instantly in your account.
+      </p>
+
+      <table style="width:100%;border-collapse:collapse;background:#0d0d0d;border:1px solid #1f2937;border-radius:14px;overflow:hidden;margin-bottom:24px">
+        <thead>
+          <tr style="background:#111827">
+            <th style="padding:12px 16px;color:#94a3b8;font-size:11px;text-transform:uppercase;text-align:left">Item</th>
+            <th style="padding:12px 16px;color:#94a3b8;font-size:11px;text-transform:uppercase;text-align:left">Format</th>
+            <th style="padding:12px 16px;color:#94a3b8;font-size:11px;text-transform:uppercase;text-align:right">Price</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemsHtml}
+        </tbody>
+      </table>
+
+      <div style="background:#0f172a;border:1px solid #1e293b;padding:16px;border-radius:12px;margin-bottom:28px">
+        <p style="margin:0 0 6px;font-size:11px;text-transform:uppercase;color:#38bdf8;font-weight:bold">Payment Summary</p>
+        <p style="margin:0 0 4px;font-size:13px;color:#e2e8f0">Transaction Payment ID: <code style="color:#34d399;font-family:monospace">${paymentId}</code></p>
+        <p style="margin:0;font-size:13px;color:#e2e8f0">Total Amount Paid: <strong style="color:#34d399">₹${totalPaid}</strong></p>
+      </div>
+
+      <div style="text-align:center;margin-bottom:24px">
+        <a href="${env.clientUrl}/library" style="background:linear-gradient(to right, #38bdf8, #818cf8);color:#000000;padding:14px 32px;border-radius:14px;font-weight:800;font-size:14px;text-decoration:none;display:inline-block;box-shadow:0 0 20px rgba(56,189,248,0.3)">
+          Access My Purchased Books →
+        </a>
+      </div>
+
+      <div style="border-top:1px solid #1f2937;padding-top:20px;text-align:center;font-size:12px;color:#64748b">
+        <p>If you have any questions, reply to this email or contact support@lekhoktripura.in.</p>
+        <p style="margin-top:4px">© ${new Date().getFullYear()} Lekhok Tripura. All rights reserved.</p>
+      </div>
+    </div>
+  `;
+
+  const textContent = [
+    `LEKHOK TRIPURA - Payment Successful!`,
+    `Hello ${user.name || "Reader"},`,
+    `Thank you for your purchase. Payment of ₹${totalPaid} received. Transaction ID: ${paymentId}.`,
+    `Access your books now at: ${env.clientUrl}/library`
+  ].join("\n");
+
+  if (env.resendApiKey) {
+    try {
+      console.log(`[Email] Sending purchase confirmation email to reader (${recipient}) via Resend...`);
+      return await sendEmailViaResend({
+        to: [recipient],
+        subject,
+        html: htmlContent,
+        text: textContent
+      });
+    } catch (error) {
+      console.error("[Email] Failed to send purchase confirmation email via Resend:", error);
+    }
+  }
+
+  return await getTransport().sendMail({
+    from: env.smtp.from || "Lekhok Tripura <no-reply@lekhoktripura.in>",
+    to: recipient,
+    subject,
+    html: htmlContent,
+    text: textContent
+  });
+}
+

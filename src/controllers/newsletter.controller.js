@@ -1,3 +1,5 @@
+import crypto from "crypto";
+import Razorpay from "razorpay";
 import slugify from "slugify";
 import { Newsletter } from "../models/Newsletter.js";
 import { NewsletterAccessRequest } from "../models/NewsletterAccessRequest.js";
@@ -5,6 +7,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../middlewares/error.middleware.js";
 import { persistUploadedFile } from "../services/storage.service.js";
 import { sendStoryAccessRequestEmail, sendStoryAccessApprovalEmail } from "../services/mail.service.js";
+import { env } from "../config/env.js";
 
 function getFile(files, key) {
   return files?.[key]?.[0];
@@ -340,5 +343,128 @@ export const updateAccessRequestStatus = asyncHandler(async (req, res) => {
   }
 
   res.json({ success: true, request: accessReq });
+});
+
+// ─── Automated Story Razorpay Checkout ──────────────────────────────────────
+export const createStoryRazorpayOrder = asyncHandler(async (req, res) => {
+  const { newsletterId, userName, userEmail, userPhone } = req.body;
+
+  const newsletter = await Newsletter.findById(newsletterId);
+  if (!newsletter) throw new ApiError(404, "Story not found.");
+  if (!newsletter.isPaid || (newsletter.price || 0) <= 0) {
+    throw new ApiError(400, "This story is free.");
+  }
+
+  const keyId = env.razorpayKeyId;
+  const keySecret = env.razorpayKeySecret;
+  if (!keyId || !keySecret) {
+    throw new ApiError(500, "Razorpay API keys are missing on the server.");
+  }
+
+  const amountInPaise = Math.round(newsletter.price * 100);
+  const receipt = `story_${Date.now()}_${newsletterId.slice(-4)}`;
+
+  const instance = new Razorpay({ key_id: keyId, key_secret: keySecret });
+  let razorpayOrder;
+  try {
+    razorpayOrder = await instance.orders.create({
+      amount: amountInPaise,
+      currency: "INR",
+      receipt,
+      notes: {
+        newsletterId: newsletter._id.toString(),
+        storyTitle: newsletter.title,
+        userEmail: userEmail.toLowerCase().trim()
+      }
+    });
+  } catch (err) {
+    console.error("[Razorpay Story Order Error]:", err);
+    throw new ApiError(500, err.message || "Failed to create Razorpay Order for story.");
+  }
+
+  const formattedEmail = userEmail.toLowerCase().trim();
+  let accessReq = await NewsletterAccessRequest.findOne({
+    newsletterId,
+    userEmail: formattedEmail,
+    status: "pending"
+  });
+
+  if (accessReq) {
+    accessReq.userName = userName;
+    accessReq.userPhone = userPhone;
+    accessReq.amount = newsletter.price;
+    accessReq.paymentMethod = "razorpay";
+    accessReq.razorpayOrderId = razorpayOrder.id;
+    await accessReq.save();
+  } else {
+    accessReq = await NewsletterAccessRequest.create({
+      newsletterId,
+      userName,
+      userEmail: formattedEmail,
+      userPhone,
+      amount: newsletter.price,
+      status: "pending",
+      paymentMethod: "razorpay",
+      razorpayOrderId: razorpayOrder.id
+    });
+  }
+
+  res.status(201).json({
+    success: true,
+    orderId: razorpayOrder.id,
+    amount: razorpayOrder.amount,
+    currency: razorpayOrder.currency || "INR",
+    keyId,
+    requestId: accessReq._id
+  });
+});
+
+export const verifyStoryRazorpayPayment = asyncHandler(async (req, res) => {
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+
+  if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+    throw new ApiError(400, "Missing Razorpay payment verification parameters.");
+  }
+
+  const keySecret = env.razorpayKeySecret;
+  if (!keySecret) {
+    throw new ApiError(500, "Razorpay Secret Key is missing on backend.");
+  }
+
+  const body = razorpay_order_id + "|" + razorpay_payment_id;
+  const expectedSignature = crypto
+    .createHmac("sha256", keySecret)
+    .update(body.toString())
+    .digest("hex");
+
+  const isAuthentic = expectedSignature === razorpay_signature;
+  if (!isAuthentic) {
+    throw new ApiError(400, "Invalid payment signature. Verification failed.");
+  }
+
+  const accessReq = await NewsletterAccessRequest.findOne({
+    razorpayOrderId: razorpay_order_id
+  }).populate("newsletterId");
+
+  if (!accessReq) {
+    throw new ApiError(404, "Story access request not found for this order.");
+  }
+
+  accessReq.status = "approved";
+  accessReq.razorpayPaymentId = razorpay_payment_id;
+  accessReq.razorpaySignature = razorpay_signature;
+  accessReq.transactionId = razorpay_payment_id;
+  accessReq.approvedAt = new Date();
+  await accessReq.save();
+
+  if (accessReq.newsletterId) {
+    sendStoryAccessApprovalEmail({ request: accessReq, story: accessReq.newsletterId }).catch(console.error);
+  }
+
+  res.json({
+    success: true,
+    message: "Payment verified successfully! Story access granted.",
+    request: accessReq
+  });
 });
 

@@ -8,6 +8,10 @@ const purchaseRequestSchema = new mongoose.Schema(
     format: { type: String, enum: ["ebook", "paperback", "hardcover"], default: "ebook", index: true },
     status: { type: String, enum: ["pending", "approved", "rejected"], default: "pending", index: true },
     transactionNumber: { type: String, trim: true, index: true },
+    razorpayOrderId: { type: String, trim: true, index: true },
+    razorpayPaymentId: { type: String, trim: true, index: true },
+    razorpaySignature: { type: String, trim: true },
+    paymentMethod: { type: String, enum: ["razorpay", "manual_upi"], default: "razorpay" },
     paymentScreenshot: {
       url: String,
       publicId: String,

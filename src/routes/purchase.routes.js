@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { adminPurchases, approvePurchase, createPurchaseRequest, createBatchPurchaseRequests, myPurchases, rejectPurchase, getPaymentConfig, updatePaymentConfig, updateShipmentStatus, getPurchaseInvoice } from "../controllers/purchase.controller.js";
+import { adminPurchases, approvePurchase, createPurchaseRequest, createBatchPurchaseRequests, myPurchases, rejectPurchase, getPaymentConfig, updatePaymentConfig, updateShipmentStatus, getPurchaseInvoice, createRazorpayOrder, verifyRazorpayPayment } from "../controllers/purchase.controller.js";
 import { requireAuth, requireRole } from "../middlewares/auth.middleware.js";
 import { paymentUpload, upload } from "../middlewares/upload.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
@@ -10,6 +10,10 @@ const router = Router();
 
 router.get("/config", getPaymentConfig);
 router.put("/config", requireAuth, requireRole("admin"), upload.single("upiQrImage"), updatePaymentConfig);
+
+// Automated Razorpay Payment Endpoints
+router.post("/razorpay/create-order", requireAuth, createRazorpayOrder);
+router.post("/razorpay/verify", requireAuth, verifyRazorpayPayment);
 
 router.post("/", requireAuth, paymentUpload, validate(purchaseCreateSchema), createPurchaseRequest);
 router.post("/batch", requireAuth, paymentUpload, validate(batchPurchaseSchema), createBatchPurchaseRequests);

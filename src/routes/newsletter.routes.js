@@ -9,7 +9,9 @@ import {
   submitAccessRequest,
   checkAccessStatus,
   listAccessRequests,
-  updateAccessRequestStatus
+  updateAccessRequestStatus,
+  createStoryRazorpayOrder,
+  verifyStoryRazorpayPayment
 } from "../controllers/newsletter.controller.js";
 import { requireAuth, requireRole } from "../middlewares/auth.middleware.js";
 import { upload } from "../middlewares/upload.middleware.js";
@@ -66,7 +68,11 @@ router.post("/subscribe", validate(subscribeSchema), async (req, res, next) => {
   }
 });
 
-// Story payment access request & verification endpoints
+// Automated Razorpay Story Payment Endpoints
+router.post("/razorpay/create-order", createStoryRazorpayOrder);
+router.post("/razorpay/verify", verifyStoryRazorpayPayment);
+
+// Legacy/Manual story payment endpoints
 router.post("/access-request", validate(newsletterAccessRequestSchema), submitAccessRequest);
 router.get("/access-status", checkAccessStatus);
 

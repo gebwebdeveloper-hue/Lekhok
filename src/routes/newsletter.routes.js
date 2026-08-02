@@ -11,7 +11,9 @@ import {
   listAccessRequests,
   updateAccessRequestStatus,
   createStoryRazorpayOrder,
-  verifyStoryRazorpayPayment
+  verifyStoryRazorpayPayment,
+  deleteStoryAccessRequest,
+  updateStoryAccessRequestDetails
 } from "../controllers/newsletter.controller.js";
 import { requireAuth, requireRole } from "../middlewares/auth.middleware.js";
 import { upload } from "../middlewares/upload.middleware.js";
@@ -76,12 +78,11 @@ router.post("/razorpay/verify", verifyStoryRazorpayPayment);
 router.post("/access-request", validate(newsletterAccessRequestSchema), submitAccessRequest);
 router.get("/access-status", checkAccessStatus);
 
-// Single story endpoint
-router.get("/:slug", optionalAuth, getNewsletterBySlug);
-
-// Admin-only endpoints
+// Admin story access request endpoints
 router.get("/admin/access-requests", requireAuth, requireRole("admin"), listAccessRequests);
 router.put("/admin/access-requests/:id/status", requireAuth, requireRole("admin"), updateAccessRequestStatus);
+router.put("/admin/access-requests/:id", requireAuth, requireRole("admin"), updateStoryAccessRequestDetails);
+router.delete("/admin/access-requests/:id", requireAuth, requireRole("admin"), deleteStoryAccessRequest);
 router.post("/", requireAuth, requireRole("admin"), newsletterUpload, validate(newsletterCreateSchema), createNewsletter);
 router.put("/:id", requireAuth, requireRole("admin"), newsletterUpload, validate(newsletterUpdateSchema), updateNewsletter);
 router.delete("/:id", requireAuth, requireRole("admin"), validate(idParamSchema), deleteNewsletter);

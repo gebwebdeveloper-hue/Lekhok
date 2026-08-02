@@ -676,5 +676,32 @@ export const verifyRazorpayPayment = asyncHandler(async (req, res) => {
   });
 });
 
+export const deletePurchase = asyncHandler(async (req, res) => {
+  const purchase = await PurchaseRequest.findByIdAndDelete(req.params.id);
+  if (!purchase) throw new ApiError(404, "Purchase request not found.");
+  res.json({ success: true, message: "Purchase transaction record deleted successfully." });
+});
+
+export const updatePurchaseDetails = asyncHandler(async (req, res) => {
+  const purchase = await PurchaseRequest.findById(req.params.id);
+  if (!purchase) throw new ApiError(404, "Purchase request not found.");
+
+  const { amount, status, transactionNumber, razorpayPaymentId, note } = req.body;
+
+  if (amount !== undefined) purchase.amount = Number(amount);
+  if (status && ["pending", "approved", "rejected", "cancelled"].includes(status)) purchase.status = status;
+  if (transactionNumber !== undefined) purchase.transactionNumber = transactionNumber;
+  if (razorpayPaymentId !== undefined) purchase.razorpayPaymentId = razorpayPaymentId;
+  if (note !== undefined) purchase.adminNote = note;
+
+  await purchase.save();
+
+  res.json({
+    success: true,
+    message: "Purchase details updated successfully.",
+    purchase
+  });
+});
+
 
 

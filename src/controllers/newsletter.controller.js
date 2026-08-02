@@ -468,3 +468,30 @@ export const verifyStoryRazorpayPayment = asyncHandler(async (req, res) => {
   });
 });
 
+export const deleteStoryAccessRequest = asyncHandler(async (req, res) => {
+  const reqObj = await NewsletterAccessRequest.findByIdAndDelete(req.params.id);
+  if (!reqObj) throw new ApiError(404, "Story access request not found.");
+  res.json({ success: true, message: "Story access request deleted successfully." });
+});
+
+export const updateStoryAccessRequestDetails = asyncHandler(async (req, res) => {
+  const reqObj = await NewsletterAccessRequest.findById(req.params.id);
+  if (!reqObj) throw new ApiError(404, "Story access request not found.");
+
+  const { amount, status, transactionId, razorpayPaymentId, adminNote } = req.body;
+
+  if (amount !== undefined) reqObj.amount = Number(amount);
+  if (status && ["pending", "approved", "rejected", "cancelled"].includes(status)) reqObj.status = status;
+  if (transactionId !== undefined) reqObj.transactionId = transactionId;
+  if (razorpayPaymentId !== undefined) reqObj.razorpayPaymentId = razorpayPaymentId;
+  if (adminNote !== undefined) reqObj.adminNote = adminNote;
+
+  await reqObj.save();
+
+  res.json({
+    success: true,
+    message: "Story access request updated successfully.",
+    request: reqObj
+  });
+});
+

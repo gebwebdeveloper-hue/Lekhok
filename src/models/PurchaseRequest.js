@@ -6,7 +6,7 @@ const purchaseRequestSchema = new mongoose.Schema(
     bookId: { type: mongoose.Schema.Types.ObjectId, ref: "Book", required: true, index: true },
     amount: { type: Number, required: true, min: 0 },
     format: { type: String, enum: ["ebook", "paperback", "hardcover"], default: "ebook", index: true },
-    status: { type: String, enum: ["pending", "approved", "rejected"], default: "pending", index: true },
+    status: { type: String, enum: ["pending", "approved", "rejected", "cancelled"], default: "pending", index: true },
     transactionNumber: { type: String, trim: true, index: true },
     razorpayOrderId: { type: String, trim: true, index: true },
     razorpayPaymentId: { type: String, trim: true, index: true },

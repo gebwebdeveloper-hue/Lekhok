@@ -12,7 +12,7 @@ const newsletterAccessRequestSchema = new mongoose.Schema(
     razorpaySignature: { type: String, trim: true },
     paymentMethod: { type: String, enum: ["razorpay", "manual_upi"], default: "razorpay" },
     amount: { type: Number, required: true, min: 0 },
-    status: { type: String, enum: ["pending", "approved", "rejected"], default: "pending", index: true },
+    status: { type: String, enum: ["pending", "approved", "rejected", "cancelled"], default: "pending", index: true },
     adminNote: { type: String, trim: true, maxlength: 500 },
     approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     approvedAt: Date,

@@ -278,14 +278,16 @@ export const checkAccessStatus = asyncHandler(async (req, res) => {
   const { newsletterId, userEmail, transactionId } = req.query;
   if (!newsletterId) throw new ApiError(400, "Newsletter ID is required.");
 
-  if (!userEmail && !transactionId) {
+  const emailToCheck = userEmail || req.user?.email;
+
+  if (!emailToCheck && !transactionId) {
     return res.json({ success: true, status: "none", approved: false });
   }
 
   const accessReq = await NewsletterAccessRequest.findOne({
     newsletterId,
     $or: [
-      ...(userEmail ? [{ userEmail: String(userEmail).toLowerCase().trim() }] : []),
+      ...(emailToCheck ? [{ userEmail: String(emailToCheck).toLowerCase().trim() }] : []),
       ...(transactionId ? [{ transactionId: String(transactionId).trim() }] : [])
     ]
   }).sort({ createdAt: -1 });

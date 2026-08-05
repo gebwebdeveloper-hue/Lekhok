@@ -71,12 +71,15 @@ router.post("/subscribe", validate(subscribeSchema), async (req, res, next) => {
 });
 
 // Automated Razorpay Story Payment Endpoints
-router.post("/razorpay/create-order", createStoryRazorpayOrder);
+router.post("/razorpay/create-order", requireAuth, createStoryRazorpayOrder);
 router.post("/razorpay/verify", verifyStoryRazorpayPayment);
 
-// Legacy/Manual story payment endpoints
+// Story payment & status endpoints
 router.post("/access-request", validate(newsletterAccessRequestSchema), submitAccessRequest);
-router.get("/access-status", checkAccessStatus);
+router.get("/access-status", optionalAuth, checkAccessStatus);
+
+// Public single story reader endpoint
+router.get("/:slug", optionalAuth, getNewsletterBySlug);
 
 // Admin story access request endpoints
 router.get("/admin/access-requests", requireAuth, requireRole("admin"), listAccessRequests);

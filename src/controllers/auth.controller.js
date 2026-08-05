@@ -159,3 +159,53 @@ export const logout = asyncHandler(async (_req, res) => {
   clearAuthCookie(res);
   res.json({ success: true, message: "Logged out." });
 });
+
+// ─── Google Authentication ───────────────────────────────────────────────────
+export const googleLogin = asyncHandler(async (req, res) => {
+  const { credential, email: bodyEmail, name: bodyName } = req.body;
+  let userEmail = bodyEmail;
+  let userName = bodyName;
+
+  if (credential) {
+    try {
+      const googleRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`);
+      if (googleRes.ok) {
+        const payload = await googleRes.json();
+        if (payload.email && (payload.email_verified === "true" || payload.email_verified === true)) {
+          userEmail = payload.email;
+          if (payload.name) userName = payload.name;
+        }
+      }
+    } catch (err) {
+      console.error("[Google Auth Token Verification Error]:", err);
+    }
+  }
+
+  if (!userEmail) {
+    throw new ApiError(400, "Invalid or unverified Google account information.");
+  }
+
+  const normalizedEmail = normalizeEmail(userEmail);
+  const role = env.adminEmails.includes(normalizedEmail) ? "admin" : "user";
+
+  const user = await User.findOneAndUpdate(
+    { email: normalizedEmail },
+    {
+      $set: {
+        verified: true,
+        lastLoginAt: new Date(),
+        role,
+        ...(userName ? { name: userName.trim() } : {})
+      },
+      $setOnInsert: {
+        email: normalizedEmail,
+        ...(!userName ? { name: normalizedEmail.split("@")[0] } : {})
+      }
+    },
+    { new: true, upsert: true }
+  );
+
+  const token = signAuthToken(user);
+  setAuthCookie(res, token);
+  res.json({ success: true, user });
+});

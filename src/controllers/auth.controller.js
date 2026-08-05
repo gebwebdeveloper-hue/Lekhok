@@ -165,6 +165,7 @@ export const googleLogin = asyncHandler(async (req, res) => {
   const { credential, email: bodyEmail, name: bodyName } = req.body;
   let userEmail = bodyEmail;
   let userName = bodyName;
+  let userPicture = "";
 
   if (credential) {
     try {
@@ -174,6 +175,7 @@ export const googleLogin = asyncHandler(async (req, res) => {
         if (payload.email && (payload.email_verified === "true" || payload.email_verified === true)) {
           userEmail = payload.email;
           if (payload.name) userName = payload.name;
+          if (payload.picture) userPicture = payload.picture;
         }
       }
     } catch (err) {
@@ -195,7 +197,8 @@ export const googleLogin = asyncHandler(async (req, res) => {
         verified: true,
         lastLoginAt: new Date(),
         role,
-        ...(userName ? { name: userName.trim() } : {})
+        ...(userName ? { name: userName.trim() } : {}),
+        ...(userPicture ? { avatarUrl: userPicture } : {})
       },
       $setOnInsert: {
         email: normalizedEmail,

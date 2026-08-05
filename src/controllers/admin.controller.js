@@ -94,3 +94,18 @@ export const revokeUserPurchase = asyncHandler(async (req, res) => {
     purchase
   });
 });
+
+export const deleteUser = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+
+  if (req.user._id.toString() === userId) {
+    throw new ApiError(400, "You cannot delete your own admin account.");
+  }
+
+  const user = await User.findByIdAndDelete(userId);
+  if (!user) {
+    throw new ApiError(404, "User account not found.");
+  }
+
+  res.json({ success: true, message: `User ${user.name || user.email} deleted successfully.` });
+});

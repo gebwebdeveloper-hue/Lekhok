@@ -14,6 +14,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../middlewares/error.middleware.js";
 import { persistUploadedFile } from "../services/storage.service.js";
 import { convertDocxToPdfIfNeeded } from "../services/document.service.js";
+import { sendNewBookNotificationToSubscribers } from "../services/mail.service.js";
 
 function parseTags(tags) {
   if (!tags) return [];
@@ -105,6 +106,11 @@ export const createBook = asyncHandler(async (req, res) => {
     publishedAt: body.publishedAt ? new Date(body.publishedAt) : new Date(),
     createdBy: req.user._id
   });
+
+  // Notify all newsletter subscribers about the new book publication in background
+  sendNewBookNotificationToSubscribers(book).catch((err) =>
+    console.error("[Email] Error notifying subscribers about new book:", err)
+  );
 
   res.status(201).json({ success: true, book });
 });

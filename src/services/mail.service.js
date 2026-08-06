@@ -2,6 +2,7 @@ import nodemailer from "nodemailer";
 import https from "https";
 import fs from "fs";
 import { env } from "../config/env.js";
+import { Subscriber } from "../models/Subscriber.js";
 
 let transport;
 
@@ -74,19 +75,19 @@ export function sendEmailViaResend({ to, subject, html, text, attachments }) {
 export async function sendOtpEmail(email, otp) {
   const htmlContent = `
     <div style="font-family:Inter,Arial,sans-serif;background:#050505;color:#ffffff;padding:32px;border-radius:16px">
-      <p style="letter-spacing:0.24em;text-transform:uppercase;color:#8be9ff;font-size:12px">LEKHAK secure login</p>
+      <p style="letter-spacing:0.24em;text-transform:uppercase;color:#8be9ff;font-size:12px">LEKHOK TRIPURA SECURE LOGIN</p>
       <h1 style="font-size:36px;margin:12px 0">${otp}</h1>
       <p style="color:#c9c9c9">Use this OTP to sign in. It expires in ${env.otpExpiresMinutes} minutes.</p>
     </div>
   `;
-  const textContent = `Your LEKHAK OTP is ${otp}. It expires in ${env.otpExpiresMinutes} minutes.`;
+  const textContent = `Your Lekhok Tripura OTP is ${otp}. It expires in ${env.otpExpiresMinutes} minutes.`;
 
   if (env.resendApiKey) {
     try {
       console.log(`[Email] Sending OTP to ${email} via Resend...`);
       const result = await sendEmailViaResend({
         to: [email],
-        subject: "Your LEKHAK login OTP",
+        subject: "Your Lekhok Tripura login OTP",
         html: htmlContent,
         text: textContent
       });
@@ -100,9 +101,9 @@ export async function sendOtpEmail(email, otp) {
 
   // Fallback to SMTP
   const info = await getTransport().sendMail({
-    from: env.smtp.from || "Lekhok Tripura <onboarding@resend.dev>",
+    from: env.smtp.from || "Lekhok Tripura <no-reply@lekhoktripura.in>",
     to: email,
-    subject: "Your LEKHAK login OTP",
+    subject: "Your Lekhok Tripura login OTP",
     html: htmlContent,
     text: textContent
   });
@@ -141,7 +142,7 @@ export async function sendPhysicalOrderEmail({ purchase, book, user }) {
   const subject = `New ${formatLabel} delivery request - ${book.title}`;
   const htmlContent = `
     <div style="font-family:Inter,Arial,sans-serif;background:#050505;color:#ffffff;padding:28px;border-radius:18px;max-width:720px">
-      <p style="letter-spacing:0.24em;text-transform:uppercase;color:#67e8f9;font-size:12px;margin:0 0 10px">LEKHAK delivery request</p>
+      <p style="letter-spacing:0.24em;text-transform:uppercase;color:#67e8f9;font-size:12px;margin:0 0 10px">LEKHOK TRIPURA DELIVERY REQUEST</p>
       <h1 style="font-size:26px;margin:0 0 6px">${escapeHtml(formatLabel)} Order</h1>
       <p style="color:#a1a1aa;margin:0 0 24px">A reader submitted a physical book delivery request.</p>
 
@@ -274,7 +275,7 @@ export async function sendClubApplicationEmail(application) {
   }
 
   const info = await getTransport().sendMail({
-    from: env.smtp.from || "LEKHAK <no-reply@lekhoktripura.in>",
+    from: env.smtp.from || "Lekhok Tripura <no-reply@lekhoktripura.in>",
     to: recipients,
     subject,
     html: htmlContent,
@@ -333,7 +334,7 @@ export async function sendEnquiryEmail(enquiry) {
   }
 
   const info = await getTransport().sendMail({
-    from: env.smtp.from || "LEKHAK <no-reply@lekhoktripura.in>",
+    from: env.smtp.from || "Lekhok Tripura <no-reply@lekhoktripura.in>",
     to: recipients,
     subject,
     html: htmlContent,
@@ -412,7 +413,7 @@ export async function sendFreePublishingEmail(application) {
   }
 
   const info = await getTransport().sendMail({
-    from: env.smtp.from || "LEKHAK <no-reply@lekhoktripura.in>",
+    from: env.smtp.from || "Lekhok Tripura <no-reply@lekhoktripura.in>",
     to: recipients,
     subject,
     html: htmlContent,
@@ -499,7 +500,7 @@ export async function sendSelfPublishingPlanEmail(application) {
   }
 
   const info = await getTransport().sendMail({
-    from: env.smtp.from || "LEKHAK <no-reply@lekhoktripura.in>",
+    from: env.smtp.from || "Lekhok Tripura <no-reply@lekhoktripura.in>",
     to: recipients,
     subject,
     html: htmlContent,
@@ -550,7 +551,7 @@ export async function sendSubscriptionEmail(email) {
   }
 
   const info = await getTransport().sendMail({
-    from: env.smtp.from || "LEKHAK <no-reply@lekhoktripura.in>",
+    from: env.smtp.from || "Lekhok Tripura <no-reply@lekhoktripura.in>",
     to: recipients,
     subject,
     html: htmlContent,
@@ -783,4 +784,203 @@ export async function sendPurchaseConfirmationEmail({ user, purchases, paymentId
     text: textContent
   });
 }
+
+export async function sendWelcomeSubscriberEmail(email) {
+  const subject = "Welcome to Lekhok Tripura Newsletter! 📚";
+  const htmlContent = `
+    <div style="font-family:'Segoe UI',Roboto,Arial,sans-serif;background:#050505;color:#ffffff;padding:32px;border-radius:18px;max-width:640px;margin:0 auto;border:1px solid #1f2937">
+      <div style="text-align:center;padding-bottom:20px;border-bottom:2px solid #06b6d4;margin-bottom:24px">
+        <p style="letter-spacing:0.25em;text-transform:uppercase;color:#38bdf8;font-size:12px;font-weight:bold;margin:0 0 6px">LEKHOK TRIPURA</p>
+        <h1 style="font-size:26px;color:#ffffff;margin:0;font-weight:800">Subscription Confirmed! 🎉</h1>
+      </div>
+
+      <p style="color:#e2e8f0;font-size:14px;line-height:1.6;margin-bottom:16px">
+        Hello &amp; Welcome!
+      </p>
+      <p style="color:#94a3b8;font-size:14px;line-height:1.6;margin-bottom:24px">
+        Thank you for subscribing to <strong>Lekhok Tripura Publishers</strong>! You are now subscribed to our reader notifications. Whenever a new book or short story is published on our platform, you will receive an instant email update.
+      </p>
+
+      <div style="text-align:center;margin:28px 0">
+        <a href="${env.clientUrl}" style="background:linear-gradient(to right, #38bdf8, #818cf8);color:#000000;padding:14px 32px;border-radius:14px;font-weight:800;font-size:14px;text-decoration:none;display:inline-block">
+          Explore Books &amp; Stories →
+        </a>
+      </div>
+
+      <div style="border-top:1px solid #1f2937;padding-top:20px;text-align:center;font-size:12px;color:#64748b">
+        <p>© ${new Date().getFullYear()} Lekhok Tripura Publishers. All rights reserved.</p>
+      </div>
+    </div>
+  `;
+  const textContent = `Welcome to Lekhok Tripura! You will receive an email whenever a new book or story is published. Visit: ${env.clientUrl}`;
+
+  if (env.resendApiKey) {
+    try {
+      return await sendEmailViaResend({ to: [email], subject, html: htmlContent, text: textContent });
+    } catch (e) {
+      console.error("[Email] Resend error for welcome email:", e);
+    }
+  }
+
+  return await getTransport().sendMail({
+    from: env.smtp.from || "Lekhok Tripura <no-reply@lekhoktripura.in>",
+    to: email,
+    subject,
+    html: htmlContent,
+    text: textContent
+  });
+}
+
+export async function sendNewBookNotificationToSubscribers(book) {
+  try {
+    const subscribers = await Subscriber.find({ isActive: true }).select("email");
+    if (!subscribers.length) {
+      console.log("[Email] No active subscribers found for new book notification.");
+      return { count: 0 };
+    }
+
+    const emails = subscribers.map((s) => s.email).filter(Boolean);
+    const subject = `📖 New Book Released: "${book.title}" by ${book.author || "Lekhok Tripura"}`;
+    
+    const coverUrl = book.cover?.url
+      ? (book.cover.url.startsWith("http") ? book.cover.url : `${env.clientUrl}${book.cover.url}`)
+      : `${env.clientUrl}/book-placeholder.jpg`;
+
+    const htmlContent = `
+      <div style="font-family:'Segoe UI',Roboto,Arial,sans-serif;background:#050505;color:#ffffff;padding:32px;border-radius:18px;max-width:680px;margin:0 auto;border:1px solid #1f2937">
+        <div style="text-align:center;padding-bottom:20px;border-bottom:2px solid #06b6d4;margin-bottom:24px">
+          <p style="letter-spacing:0.25em;text-transform:uppercase;color:#38bdf8;font-size:12px;font-weight:bold;margin:0 0 6px">LEKHOK TRIPURA PUBLICATION</p>
+          <h1 style="font-size:26px;color:#ffffff;margin:0;font-weight:800">New Book Published! 📚</h1>
+        </div>
+
+        <div style="text-align:center;margin-bottom:24px">
+          <img src="${coverUrl}" alt="${escapeHtml(book.title || '')}" style="max-width:220px;height:auto;border-radius:12px;border:1px solid #334155;box-shadow:0 10px 30px rgba(0,0,0,0.5)" />
+        </div>
+
+        <div style="text-align:center;margin-bottom:20px">
+          <h2 style="font-size:22px;color:#ffffff;margin:0 0 6px">${escapeHtml(book.title || '')}</h2>
+          <p style="color:#38bdf8;font-weight:bold;margin:0">By ${escapeHtml(book.author || "Lekhok Tripura")}</p>
+          ${book.category ? `<span style="display:inline-block;background:#1e293b;color:#94a3b8;padding:4px 12px;border-radius:20px;font-size:11px;text-transform:uppercase;margin-top:8px;font-weight:bold">${escapeHtml(book.category)}</span>` : ''}
+        </div>
+
+        <p style="color:#cbd5e1;font-size:14px;line-height:1.6;margin-bottom:24px;background:#0d0d0d;padding:16px;border-radius:12px;border:1px solid #1e293b">
+          ${escapeHtml(book.description || "A brand new book is now live on Lekhok Tripura!")}
+        </p>
+
+        <div style="text-align:center;margin:32px 0">
+          <a href="${env.clientUrl}/library" style="background:linear-gradient(to right, #38bdf8, #818cf8);color:#000000;padding:16px 36px;border-radius:14px;font-weight:800;font-size:15px;text-decoration:none;display:inline-block;box-shadow:0 0 20px rgba(56,189,248,0.3)">
+            View &amp; Buy Book Now →
+          </a>
+        </div>
+
+        <div style="border-top:1px solid #1f2937;padding-top:20px;text-align:center;font-size:12px;color:#64748b">
+          <p>You received this email because you subscribed to Lekhok Tripura book updates.</p>
+          <p style="margin-top:4px">© ${new Date().getFullYear()} Lekhok Tripura Publishers. All rights reserved.</p>
+        </div>
+      </div>
+    `;
+
+    const textContent = `New Book Published: "${book.title}" by ${book.author}.\nCheck it out now at: ${env.clientUrl}/library`;
+
+    console.log(`[Email] Sending new book notification to ${emails.length} subscribers...`);
+    for (const email of emails) {
+      try {
+        if (env.resendApiKey) {
+          await sendEmailViaResend({ to: [email], subject, html: htmlContent, text: textContent });
+        } else {
+          await getTransport().sendMail({
+            from: env.smtp.from || "Lekhok Tripura <no-reply@lekhoktripura.in>",
+            to: email,
+            subject,
+            html: htmlContent,
+            text: textContent
+          });
+        }
+      } catch (err) {
+        console.error(`[Email] Failed to send new book email to ${email}:`, err);
+      }
+    }
+    return { count: emails.length };
+  } catch (error) {
+    console.error("[Email] Failed to send new book notification:", error);
+  }
+}
+
+export async function sendNewStoryNotificationToSubscribers(story) {
+  try {
+    const subscribers = await Subscriber.find({ isActive: true }).select("email");
+    if (!subscribers.length) {
+      console.log("[Email] No active subscribers found for new story notification.");
+      return { count: 0 };
+    }
+
+    const emails = subscribers.map((s) => s.email).filter(Boolean);
+    const subject = `✍️ New Story Published: "${story.title}"`;
+
+    const coverUrl = story.cover?.url
+      ? (story.cover.url.startsWith("http") ? story.cover.url : `${env.clientUrl}${story.cover.url}`)
+      : `${env.clientUrl}/book-placeholder.jpg`;
+
+    const storyUrl = `${env.clientUrl}/short-stories/${story.slug}`;
+
+    const htmlContent = `
+      <div style="font-family:'Segoe UI',Roboto,Arial,sans-serif;background:#050505;color:#ffffff;padding:32px;border-radius:18px;max-width:680px;margin:0 auto;border:1px solid #1f2937">
+        <div style="text-align:center;padding-bottom:20px;border-bottom:2px solid #38bdf8;margin-bottom:24px">
+          <p style="letter-spacing:0.25em;text-transform:uppercase;color:#38bdf8;font-size:12px;font-weight:bold;margin:0 0 6px">LEKHOK TRIPURA STORIES</p>
+          <h1 style="font-size:26px;color:#ffffff;margin:0;font-weight:800">New Story Published! ✍️</h1>
+        </div>
+
+        <div style="text-align:center;margin-bottom:24px">
+          <img src="${coverUrl}" alt="${escapeHtml(story.title || '')}" style="max-width:320px;width:100%;height:auto;border-radius:14px;border:1px solid #334155" />
+        </div>
+
+        <div style="text-align:center;margin-bottom:20px">
+          <h2 style="font-size:24px;color:#ffffff;margin:0 0 6px">${escapeHtml(story.title || '')}</h2>
+          <p style="color:#38bdf8;font-weight:bold;margin:0">Written by ${escapeHtml(story.author || "Lekhok Tripura")}</p>
+          ${story.readingTime ? `<span style="display:inline-block;background:#1e293b;color:#34d399;padding:4px 12px;border-radius:20px;font-size:11px;text-transform:uppercase;margin-top:8px;font-weight:bold">⏱ ${story.readingTime} min read</span>` : ''}
+        </div>
+
+        <p style="color:#cbd5e1;font-size:14px;line-height:1.6;margin-bottom:24px;background:#0d0d0d;padding:16px;border-radius:12px;border:1px solid #1e293b">
+          ${escapeHtml(story.description || "A fresh short story is now available to read on Lekhok Tripura!")}
+        </p>
+
+        <div style="text-align:center;margin:32px 0">
+          <a href="${storyUrl}" style="background:linear-gradient(to right, #38bdf8, #818cf8);color:#000000;padding:16px 36px;border-radius:14px;font-weight:800;font-size:15px;text-decoration:none;display:inline-block;box-shadow:0 0 20px rgba(56,189,248,0.3)">
+            Read Story Now →
+          </a>
+        </div>
+
+        <div style="border-top:1px solid #1f2937;padding-top:20px;text-align:center;font-size:12px;color:#64748b">
+          <p>You received this email because you subscribed to Lekhok Tripura story updates.</p>
+          <p style="margin-top:4px">© ${new Date().getFullYear()} Lekhok Tripura Publishers. All rights reserved.</p>
+        </div>
+      </div>
+    `;
+
+    const textContent = `New Story Published: "${story.title}" by ${story.author}.\nRead it now at: ${storyUrl}`;
+
+    console.log(`[Email] Sending new story notification to ${emails.length} subscribers...`);
+    for (const email of emails) {
+      try {
+        if (env.resendApiKey) {
+          await sendEmailViaResend({ to: [email], subject, html: htmlContent, text: textContent });
+        } else {
+          await getTransport().sendMail({
+            from: env.smtp.from || "Lekhok Tripura <no-reply@lekhoktripura.in>",
+            to: email,
+            subject,
+            html: htmlContent,
+            text: textContent
+          });
+        }
+      } catch (err) {
+        console.error(`[Email] Failed to send new story email to ${email}:`, err);
+      }
+    }
+    return { count: emails.length };
+  } catch (error) {
+    console.error("[Email] Failed to send new story notification:", error);
+  }
+}
+
 

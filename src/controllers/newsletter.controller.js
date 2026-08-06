@@ -6,7 +6,11 @@ import { NewsletterAccessRequest } from "../models/NewsletterAccessRequest.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../middlewares/error.middleware.js";
 import { persistUploadedFile } from "../services/storage.service.js";
-import { sendStoryAccessRequestEmail, sendStoryAccessApprovalEmail } from "../services/mail.service.js";
+import {
+  sendStoryAccessRequestEmail,
+  sendStoryAccessApprovalEmail,
+  sendNewStoryNotificationToSubscribers
+} from "../services/mail.service.js";
 import { env } from "../config/env.js";
 
 function getFile(files, key) {
@@ -165,6 +169,12 @@ export const createNewsletter = asyncHandler(async (req, res) => {
     isPaid,
     categories: parseCategories(body.categories)
   });
+
+  if (newsletter.status === "published") {
+    sendNewStoryNotificationToSubscribers(newsletter).catch((err) =>
+      console.error("[Email] Error notifying subscribers about new story:", err)
+    );
+  }
 
   res.status(201).json({ success: true, newsletter });
 });

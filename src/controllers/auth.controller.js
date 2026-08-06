@@ -162,7 +162,7 @@ export const logout = asyncHandler(async (_req, res) => {
 
 // ─── Google Authentication ───────────────────────────────────────────────────
 export const googleLogin = asyncHandler(async (req, res) => {
-  const { credential, email: bodyEmail, name: bodyName } = req.body;
+  const { credential, email: bodyEmail, name: bodyName, mode = "login" } = req.body;
   let userEmail = bodyEmail;
   let userName = bodyName;
   let userPicture = "";
@@ -190,23 +190,32 @@ export const googleLogin = asyncHandler(async (req, res) => {
   const normalizedEmail = normalizeEmail(userEmail);
   const role = env.adminEmails.includes(normalizedEmail) ? "admin" : "user";
 
-  const user = await User.findOneAndUpdate(
-    { email: normalizedEmail },
-    {
-      $set: {
-        verified: true,
-        lastLoginAt: new Date(),
-        role,
-        ...(userName ? { name: userName.trim() } : {}),
-        ...(userPicture ? { avatarUrl: userPicture } : {})
-      },
-      $setOnInsert: {
-        email: normalizedEmail,
-        ...(!userName ? { name: normalizedEmail.split("@")[0] } : {})
-      }
-    },
-    { new: true, upsert: true }
-  );
+  let user = await User.findOne({ email: normalizedEmail });
+
+  // Enforce Signup requirement: If mode is "login" and user doesn't exist, reject login
+  if (mode === "login" && !user) {
+    throw new ApiError(401, "No account found with this Google email. Please Sign Up first.");
+  }
+
+  if (!user) {
+    // Mode is "register": Create new account
+    user = await User.create({
+      email: normalizedEmail,
+      name: userName?.trim() || normalizedEmail.split("@")[0],
+      avatarUrl: userPicture || "",
+      verified: true,
+      role,
+      lastLoginAt: new Date()
+    });
+  } else {
+    // User exists: Update login details & avatar if available
+    user.verified = true;
+    user.lastLoginAt = new Date();
+    if (userName && !user.name) user.name = userName.trim();
+    if (userPicture && !user.avatarUrl) user.avatarUrl = userPicture;
+    if (role === "admin" && user.role !== "admin") user.role = "admin";
+    await user.save();
+  }
 
   const token = signAuthToken(user);
   setAuthCookie(res, token);

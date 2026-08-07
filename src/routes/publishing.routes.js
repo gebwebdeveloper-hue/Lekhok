@@ -65,29 +65,68 @@ router.post("/free", uploadManuscript, validate(freePublishingSchema), async (re
 });
 
 
-const PLAN_PRICES = {
-  basic: { base: 4999, gst: 899.82, total: 5898.82, name: "Basic Publishing Plan" },
-  essential: { base: 7999, gst: 1439.82, total: 9438.82, name: "Essential Publishing Plan" },
-  popular: { base: 11999, gst: 2159.82, total: 14158.82, name: "Popular Publishing Plan" },
+const ADDON_PRICES = {
+  "Professional Cover Design": 3000,
+  "Book Trailer / Promotional Video": 3000,
+  "Social Media Marketing": 1000,
+  "Author Website": 6200,
+  "Book Launch Event": 10000,
+  "Press Release": 10000,
+  "Author Interview": 25000,
+  "Book Review Campaign": 10000,
+  "Printed Bookmarks": 500,
+  "Posters": 50,
+  "Author Visiting Card": 500,
+  "QR Code for Book": 100,
+  "Copyright Registration Assistance": 6000,
+  "Translation Service": 10000,
+  "Audiobook Publishing": 10000,
+  "Premium Cover Finish (Matte / Gloss / Spot UV)": 2000,
+  "Amazon A+ Content": 3000,
+  "Roll-up Standee": 1500,
 };
 
-function getPlanPricing(planName) {
+function getPlanPricing(planName, addons = []) {
   const norm = String(planName || "").toLowerCase();
-  if (norm.includes("essential")) return PLAN_PRICES.essential;
-  if (norm.includes("popular")) return PLAN_PRICES.popular;
-  return PLAN_PRICES.basic;
+  let base = 4999;
+  let name = "Basic Publishing Plan";
+  if (norm.includes("essential")) {
+    base = 7999;
+    name = "Essential Publishing Plan";
+  } else if (norm.includes("popular")) {
+    base = 11999;
+    name = "Popular Publishing Plan";
+  }
+
+  let addonsTotal = 0;
+  if (Array.isArray(addons)) {
+    addons.forEach((addonName) => {
+      for (const [key, price] of Object.entries(ADDON_PRICES)) {
+        if (addonName === key || addonName.startsWith(key) || key.startsWith(addonName)) {
+          addonsTotal += price;
+          break;
+        }
+      }
+    });
+  }
+
+  const subtotal = base + addonsTotal;
+  const gst = subtotal * 0.18;
+  const total = subtotal + gst;
+
+  return { name, base, addonsTotal, subtotal, gst, total };
 }
 
 router.post("/create-order", async (req, res, next) => {
   try {
-    const { planName, name, email, phone } = req.body;
+    const { planName, name, email, phone, addons } = req.body;
     const keyId = env.razorpayKeyId;
     const keySecret = env.razorpayKeySecret;
     if (!keyId || !keySecret) {
       throw new ApiError(500, "Razorpay API keys are not configured on the server.");
     }
 
-    const pricing = getPlanPricing(planName);
+    const pricing = getPlanPricing(planName, addons);
     const amountInPaise = Math.round(pricing.total * 100);
     const receipt = `pub_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
 
@@ -100,7 +139,8 @@ router.post("/create-order", async (req, res, next) => {
         planName: planName || pricing.name,
         userEmail: email || "",
         userName: name || "",
-        userPhone: phone || ""
+        userPhone: phone || "",
+        addonsCount: Array.isArray(addons) ? addons.length : 0
       }
     });
 

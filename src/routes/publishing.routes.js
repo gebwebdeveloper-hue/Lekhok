@@ -91,10 +91,10 @@ function getPlanPricing(planName, addons = []) {
   let base = 4999;
   let name = "Basic Publishing Plan";
   if (norm.includes("essential")) {
-    base = 7999;
+    base = 9999;
     name = "Essential Publishing Plan";
   } else if (norm.includes("popular")) {
-    base = 11999;
+    base = 14999;
     name = "Popular Publishing Plan";
   }
 

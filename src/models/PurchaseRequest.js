@@ -24,12 +24,14 @@ const purchaseRequestSchema = new mongoose.Schema(
     deliveryAddress: {
       co: { type: String, trim: true, maxlength: 120 },
       country: { type: String, trim: true, default: "India", maxlength: 80 },
+      state: { type: String, trim: true, maxlength: 100 },
       district: { type: String, trim: true, maxlength: 80 },
       block: { type: String, trim: true, maxlength: 80 },
       pin: { type: String, trim: true, maxlength: 10 },
       postOffice: { type: String, trim: true, maxlength: 80 },
       nearbyLocation: { type: String, trim: true, maxlength: 200 }
     },
+    deliveryCharge: { type: Number, default: 0, min: 0 },
     adminNote: { type: String, trim: true, maxlength: 500 },
     approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     approvedAt: Date,

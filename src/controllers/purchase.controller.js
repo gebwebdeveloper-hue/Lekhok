@@ -9,6 +9,31 @@ import { persistUploadedFile } from "../services/storage.service.js";
 import { sendPhysicalOrderEmail, sendPurchaseConfirmationEmail } from "../services/mail.service.js";
 import { env } from "../config/env.js";
 
+// 18% GST applied on every book purchase
+const GST_RATE = 0.18;
+const applyGST = (basePrice) => Math.round(Number(basePrice) * (1 + GST_RATE) * 100) / 100;
+
+// Delivery charge for paperback/hardcover based on state
+const DELIVERY_CHARGES = {
+  tripura: 80,
+  "west bengal": 100,
+  "westbengal": 100,
+};
+const DEFAULT_DELIVERY_CHARGE = 120;
+
+/**
+ * Returns the delivery charge (₹) for a physical book based on the buyer's state.
+ * @param {string} state - The Indian state name
+ * @returns {number} delivery charge in INR
+ */
+const getDeliveryCharge = (state) => {
+  if (!state) return DEFAULT_DELIVERY_CHARGE;
+  const normalized = state.trim().toLowerCase().replace(/\s+/g, " ");
+  if (normalized === "tripura") return DELIVERY_CHARGES.tripura;
+  if (normalized === "west bengal" || normalized === "westbengal") return DELIVERY_CHARGES["west bengal"];
+  return DEFAULT_DELIVERY_CHARGE;
+};
+
 export const createPurchaseRequest = asyncHandler(async (req, res) => {
   const book = await Book.findById(req.body.bookId);
   if (!book) throw new ApiError(404, "Book not found.");
@@ -25,11 +50,13 @@ export const createPurchaseRequest = asyncHandler(async (req, res) => {
   if (existingPending) return res.status(200).json({ success: true, purchase: existingPending, payment: { upiId: env.upiId, qr: env.upiQrImageUrl } });
 
   const screenshot = await persistUploadedFile(req.file, "payments", "image");
-  const amount = format === "paperback"
+  const baseAmount = format === "paperback"
     ? (book.paperbackPrice || book.price)
     : format === "hardcover"
     ? (book.hardcoverPrice || book.price)
     : book.price;
+  const deliveryCharge = !isEbook ? getDeliveryCharge(req.body.state) : 0;
+  const amount = applyGST(baseAmount) + deliveryCharge;
 
   const purchase = await PurchaseRequest.create({
     userId: req.user._id,
@@ -39,9 +66,11 @@ export const createPurchaseRequest = asyncHandler(async (req, res) => {
     format,
     transactionNumber: req.body.transactionNumber,
     note: req.body.note,
+    deliveryCharge,
     deliveryAddress: isEbook ? undefined : {
       co: req.body.co,
       country: req.body.country || "India",
+      state: req.body.state,
       district: req.body.district,
       block: req.body.block,
       pin: req.body.pin,
@@ -177,7 +206,7 @@ export const createBatchPurchaseRequests = asyncHandler(async (req, res) => {
     throw new ApiError(400, "No valid items in cart to purchase.");
   }
 
-  const { transactionNumber, note, co, country, district, block, pin, postOffice, nearbyLocation } = req.body;
+  const { transactionNumber, note, co, country, state, district, block, pin, postOffice, nearbyLocation } = req.body;
   const screenshot = await persistUploadedFile(req.file, "payments", "image");
   const createdPurchases = [];
 
@@ -193,11 +222,13 @@ export const createBatchPurchaseRequests = asyncHandler(async (req, res) => {
       : null;
     if (approved) continue;
 
-    const amount = format === "paperback"
+    const baseAmount = format === "paperback"
       ? (book.paperbackPrice || book.price)
       : format === "hardcover"
       ? (book.hardcoverPrice || book.price)
       : book.price;
+    const deliveryCharge = !isEbook ? getDeliveryCharge(state) : 0;
+    const amount = applyGST(baseAmount) + deliveryCharge;
 
     const purchase = await PurchaseRequest.create({
       userId: req.user._id,
@@ -207,9 +238,11 @@ export const createBatchPurchaseRequests = asyncHandler(async (req, res) => {
       format,
       transactionNumber,
       note: note || `Cart purchase for ${book.title} (${format.toUpperCase()})`,
+      deliveryCharge,
       deliveryAddress: isEbook ? undefined : {
         co,
         country: country || "India",
+        state,
         district,
         block,
         pin,
@@ -312,6 +345,14 @@ export const getPurchaseInvoice = asyncHandler(async (req, res) => {
   const isPhysical = purchase.format === "paperback" || purchase.format === "hardcover";
   const address = purchase.deliveryAddress || {};
 
+  // GST & delivery breakdown for invoice
+  const gstRate = 0.18;
+  const purchaseDeliveryCharge = purchase.deliveryCharge || 0;
+  // amount stored = bookPriceWithGST + deliveryCharge
+  const bookTotalWithGST = purchase.amount - purchaseDeliveryCharge;
+  const baseAmountForInv = Math.round((bookTotalWithGST / (1 + gstRate)) * 100) / 100;
+  const gstAmountForInv = Math.round((bookTotalWithGST - baseAmountForInv) * 100) / 100;
+
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -386,7 +427,7 @@ export const getPurchaseInvoice = asyncHandler(async (req, res) => {
           <p>${address.nearbyLocation ? `Landmark: ${address.nearbyLocation}` : ""}</p>
           <p>${address.block ? `Block: ${address.block}` : ""}, ${address.district || ""}</p>
           <p>${address.postOffice ? `PO: ${address.postOffice}` : ""} - PIN: ${address.pin || ""}</p>
-          <p>${address.country || "India"}</p>
+          <p>${address.state ? address.state + ", " : ""}${address.country || "India"}</p>
         ` : `
           <p>Format: <strong>DIGITAL E-BOOK (PDF)</strong></p>
           <p>Delivery: Instant Reader Access</p>
@@ -401,7 +442,9 @@ export const getPurchaseInvoice = asyncHandler(async (req, res) => {
           <th>Item Description</th>
           <th>Format</th>
           <th>Qty</th>
-          <th class="right">Amount (INR)</th>
+          <th class="right">Base Price (INR)</th>
+          <th class="right">GST @18%</th>
+          <th class="right">Total (INR)</th>
         </tr>
       </thead>
       <tbody>
@@ -412,13 +455,26 @@ export const getPurchaseInvoice = asyncHandler(async (req, res) => {
           </td>
           <td><span style="text-transform: uppercase; font-weight: 700; font-size: 12px;">${purchase.format || "EBOOK"}</span></td>
           <td>1</td>
+          <td class="right">₹${baseAmountForInv}</td>
+          <td class="right">₹${gstAmountForInv}</td>
           <td class="right"><strong>₹${purchase.amount}</strong></td>
         </tr>
       </tbody>
     </table>
 
     <div class="total-section">
-      <div class="total-box">
+      <div class="total-box" style="width: 320px;">
+        <div style="display: flex; justify-content: space-between; font-size: 13px; color: #334155; padding: 4px 0;">
+          <span>Base Book Price:</span><span>₹${baseAmountForInv}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 13px; color: #334155; padding: 4px 0;">
+          <span>GST (18%):</span><span>₹${gstAmountForInv}</span>
+        </div>
+        ${purchaseDeliveryCharge > 0 ? `
+        <div style="display: flex; justify-content: space-between; font-size: 13px; color: #334155; padding: 4px 0;">
+          <span>Delivery Charge:</span><span>₹${purchaseDeliveryCharge}</span>
+        </div>` : ""}
+        <div style="height: 1px; background: #a5f3fc; margin: 8px 0;"></div>
         <div class="total-row">
           <span>Total Paid:</span>
           <span>₹${purchase.amount}</span>
@@ -428,7 +484,8 @@ export const getPurchaseInvoice = asyncHandler(async (req, res) => {
     </div>
 
     <div style="background: #fafafa; border: 1px dashed #cbd5e1; padding: 14px; border-radius: 8px; font-size: 12px; color: #475569; margin-bottom: 30px;">
-      <p><strong>Payment Summary:</strong> Paid ₹${purchase.amount} via UPI Reference Code <code>${purchase.transactionNumber || "N/A"}</code>.</p>
+      <p><strong>Payment Summary:</strong> Paid ₹${purchase.amount} (Book ₹${bookTotalWithGST} [Base ₹${baseAmountForInv} + GST @18% ₹${gstAmountForInv}]${purchaseDeliveryCharge > 0 ? ` + Delivery ₹${purchaseDeliveryCharge}` : ""}) via UPI Reference Code <code>${purchase.transactionNumber || "N/A"}</code>.</p>
+      <p style="margin-top: 6px; color: #94a3b8;">GST Rate: 18% | SAC/HSN: 998431 (Digital Publishing Services)</p>
     </div>
 
     <div class="footer">
@@ -487,9 +544,13 @@ export const createRazorpayOrder = asyncHandler(async (req, res) => {
     throw new ApiError(400, "No valid book items provided for checkout.");
   }
 
-  const { co, country, district, block, pin, postOffice, nearbyLocation, note } = req.body;
+  const { co, country, state, district, block, pin, postOffice, nearbyLocation, note } = req.body;
   let totalAmountINR = 0;
   const itemsToPurchase = [];
+
+  // Compute delivery charge once (same state for whole cart)
+  const hasPhysical = items.some(i => (i.format || "ebook") !== "ebook");
+  const cartDeliveryCharge = hasPhysical ? getDeliveryCharge(state) : 0;
 
   for (const item of items) {
     const book = await Book.findById(item.bookId);
@@ -504,15 +565,19 @@ export const createRazorpayOrder = asyncHandler(async (req, res) => {
       : null;
     if (approved) continue;
 
-    const itemPrice = format === "paperback"
+    const itemBasePrice = format === "paperback"
       ? (book.paperbackPrice || book.price)
       : format === "hardcover"
       ? (book.hardcoverPrice || book.price)
       : book.price;
+    const itemPrice = applyGST(itemBasePrice);
 
     totalAmountINR += itemPrice;
-    itemsToPurchase.push({ book, format, price: itemPrice });
+    itemsToPurchase.push({ book, format, price: itemPrice, isEbook });
   }
+
+  // Add delivery charge once on top of item total (not per-item)
+  totalAmountINR += cartDeliveryCharge;
 
   if (itemsToPurchase.length === 0) {
     throw new ApiError(400, "All items in cart have already been purchased and unlocked.");
@@ -541,6 +606,12 @@ export const createRazorpayOrder = asyncHandler(async (req, res) => {
   const createdPurchases = [];
   for (const item of itemsToPurchase) {
     const isEbook = item.format === "ebook";
+    // Delivery charge: spread across first physical item only (or store per-item)
+    const itemDeliveryCharge = (!isEbook && cartDeliveryCharge > 0 &&
+      createdPurchases.filter(p => p.format !== "ebook").length === 0)
+      ? cartDeliveryCharge
+      : 0;
+
     let purchase = await PurchaseRequest.findOne({
       userId: req.user._id,
       bookId: item.book._id,
@@ -549,7 +620,8 @@ export const createRazorpayOrder = asyncHandler(async (req, res) => {
     });
 
     if (purchase) {
-      purchase.amount = item.price;
+      purchase.amount = item.price + itemDeliveryCharge;
+      purchase.deliveryCharge = itemDeliveryCharge;
       purchase.paymentMethod = "razorpay";
       purchase.razorpayOrderId = razorpayOrder.id;
       purchase.note = note || `Automated Razorpay Checkout for ${item.book.title} (${item.format.toUpperCase()})`;
@@ -557,6 +629,7 @@ export const createRazorpayOrder = asyncHandler(async (req, res) => {
         purchase.deliveryAddress = {
           co,
           country: country || "India",
+          state,
           district,
           block,
           pin,
@@ -569,15 +642,17 @@ export const createRazorpayOrder = asyncHandler(async (req, res) => {
       purchase = await PurchaseRequest.create({
         userId: req.user._id,
         bookId: item.book._id,
-        amount: item.price,
+        amount: item.price + itemDeliveryCharge,
         format: item.format,
         status: "pending",
         paymentMethod: "razorpay",
         razorpayOrderId: razorpayOrder.id,
         note: note || `Automated Razorpay Checkout for ${item.book.title} (${item.format.toUpperCase()})`,
+        deliveryCharge: itemDeliveryCharge,
         deliveryAddress: isEbook ? undefined : {
           co,
           country: country || "India",
+          state,
           district,
           block,
           pin,

@@ -9,7 +9,8 @@ import { persistUploadedFile } from "../services/storage.service.js";
 import {
   sendStoryAccessRequestEmail,
   sendStoryAccessApprovalEmail,
-  sendNewStoryNotificationToSubscribers
+  sendNewStoryNotificationToSubscribers,
+  sendRefundConfirmationEmail
 } from "../services/mail.service.js";
 import { env } from "../config/env.js";
 
@@ -509,6 +510,56 @@ export const updateStoryAccessRequestDetails = asyncHandler(async (req, res) => 
     success: true,
     message: "Story access request updated successfully.",
     request: reqObj
+  });
+});
+
+export const refundStoryAccessRequest = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { refundReason } = req.body;
+
+  const accessReq = await NewsletterAccessRequest.findById(id).populate("newsletterId");
+  if (!accessReq) throw new ApiError(404, "Story access request not found.");
+
+  const pId = accessReq.razorpayPaymentId || accessReq.transactionId;
+  let razorpayRefund = null;
+
+  if (accessReq.razorpayPaymentId && env.razorpayKeyId && env.razorpayKeySecret) {
+    try {
+      const instance = new Razorpay({ key_id: env.razorpayKeyId, key_secret: env.razorpayKeySecret });
+      const amountInPaise = Math.round((accessReq.amount || 0) * 100);
+      razorpayRefund = await instance.payments.refund(accessReq.razorpayPaymentId, {
+        amount: amountInPaise,
+        notes: { reason: refundReason || "Admin story refund", requestId: accessReq._id.toString() }
+      });
+    } catch (err) {
+      console.error("[Razorpay Story Refund Error]:", err);
+    }
+  }
+
+  accessReq.status = "rejected";
+  accessReq.adminNote = (accessReq.adminNote ? accessReq.adminNote + "\n" : "") + `[REFUNDED] ${refundReason || "Admin processed refund"}${razorpayRefund ? ` (Refund ID: ${razorpayRefund.id})` : ""}`;
+  await accessReq.save();
+
+  try {
+    if (accessReq.userEmail) {
+      await sendRefundConfirmationEmail({
+        user: { name: accessReq.userName, email: accessReq.userEmail },
+        itemTitle: accessReq.newsletterId?.title || "Short Story Access",
+        amount: accessReq.amount || 0,
+        paymentId: pId || "N/A",
+        refundId: razorpayRefund?.id || "PROCESSED",
+        reason: refundReason || "Admin issued story refund"
+      });
+    }
+  } catch (emailErr) {
+    console.error("[Email Error] Story refund email failed:", emailErr);
+  }
+
+  res.json({
+    success: true,
+    message: `Refund of ₹${accessReq.amount || 0} for "${accessReq.newsletterId?.title || 'Story'}" processed successfully!`,
+    request: accessReq,
+    refundId: razorpayRefund?.id
   });
 });
 

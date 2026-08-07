@@ -13,7 +13,8 @@ import {
   createStoryRazorpayOrder,
   verifyStoryRazorpayPayment,
   deleteStoryAccessRequest,
-  updateStoryAccessRequestDetails
+  updateStoryAccessRequestDetails,
+  refundStoryAccessRequest
 } from "../controllers/newsletter.controller.js";
 import { requireAuth, requireRole } from "../middlewares/auth.middleware.js";
 import { upload } from "../middlewares/upload.middleware.js";
@@ -98,6 +99,7 @@ router.get("/:slug", optionalAuth, getNewsletterBySlug);
 // Admin story access request endpoints
 router.get("/admin/access-requests", requireAuth, requireRole("admin"), listAccessRequests);
 router.put("/admin/access-requests/:id/status", requireAuth, requireRole("admin"), updateAccessRequestStatus);
+router.post("/admin/access-requests/:id/refund", requireAuth, requireRole("admin"), refundStoryAccessRequest);
 router.put("/admin/access-requests/:id", requireAuth, requireRole("admin"), updateStoryAccessRequestDetails);
 router.delete("/admin/access-requests/:id", requireAuth, requireRole("admin"), deleteStoryAccessRequest);
 router.post("/", requireAuth, requireRole("admin"), newsletterUpload, validate(newsletterCreateSchema), createNewsletter);

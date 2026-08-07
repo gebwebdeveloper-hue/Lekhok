@@ -2,11 +2,12 @@ import crypto from "crypto";
 import Razorpay from "razorpay";
 import { Book } from "../models/Book.js";
 import { PurchaseRequest } from "../models/PurchaseRequest.js";
+import { NewsletterAccessRequest } from "../models/NewsletterAccessRequest.js";
 import { PaymentConfig } from "../models/PaymentConfig.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../middlewares/error.middleware.js";
 import { persistUploadedFile } from "../services/storage.service.js";
-import { sendPhysicalOrderEmail, sendPurchaseConfirmationEmail } from "../services/mail.service.js";
+import { sendPhysicalOrderEmail, sendPurchaseConfirmationEmail, sendRefundConfirmationEmail } from "../services/mail.service.js";
 import { env } from "../config/env.js";
 
 // 18% GST applied on every book purchase
@@ -775,6 +776,105 @@ export const updatePurchaseDetails = asyncHandler(async (req, res) => {
     success: true,
     message: "Purchase details updated successfully.",
     purchase
+  });
+});
+
+export const processRefund = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { refundReason } = req.body;
+
+  let purchase = await PurchaseRequest.findById(id).populate("userId").populate("bookId");
+
+  if (!purchase) {
+    // Check if it is a short story access request
+    const storyAccess = await NewsletterAccessRequest.findById(id).populate("newsletterId");
+    if (storyAccess) {
+      const pId = storyAccess.razorpayPaymentId || storyAccess.transactionId;
+      let razorpayRefund = null;
+
+      if (storyAccess.razorpayPaymentId && env.razorpayKeyId && env.razorpayKeySecret) {
+        try {
+          const instance = new Razorpay({ key_id: env.razorpayKeyId, key_secret: env.razorpayKeySecret });
+          const amountInPaise = Math.round((storyAccess.amount || 0) * 100);
+          razorpayRefund = await instance.payments.refund(storyAccess.razorpayPaymentId, {
+            amount: amountInPaise,
+            notes: { reason: refundReason || "Admin story refund", requestId: storyAccess._id.toString() }
+          });
+        } catch (err) {
+          console.error("[Razorpay Story Refund Error]:", err);
+        }
+      }
+
+      storyAccess.status = "rejected";
+      storyAccess.adminNote = (storyAccess.adminNote ? storyAccess.adminNote + "\n" : "") + `[REFUNDED] ${refundReason || "Admin processed refund"}${razorpayRefund ? ` (Refund ID: ${razorpayRefund.id})` : ""}`;
+      await storyAccess.save();
+
+      try {
+        if (storyAccess.userEmail) {
+          await sendRefundConfirmationEmail({
+            user: { name: storyAccess.userName, email: storyAccess.userEmail },
+            itemTitle: storyAccess.newsletterId?.title || "Short Story Access",
+            amount: storyAccess.amount || 0,
+            paymentId: pId || "N/A",
+            refundId: razorpayRefund?.id || "PROCESSED",
+            reason: refundReason || "Admin issued story refund"
+          });
+        }
+      } catch (emailErr) {
+        console.error("[Email Error] Story refund email failed:", emailErr);
+      }
+
+      return res.json({
+        success: true,
+        message: `Refund of ₹${storyAccess.amount || 0} for "${storyAccess.newsletterId?.title || 'Story'}" processed successfully!`,
+        purchase: storyAccess,
+        refundId: razorpayRefund?.id
+      });
+    }
+
+    throw new ApiError(404, "Purchase transaction not found.");
+  }
+
+  const paymentId = purchase.razorpayPaymentId || purchase.transactionNumber;
+  let razorpayRefund = null;
+
+  if (purchase.razorpayPaymentId && env.razorpayKeyId && env.razorpayKeySecret) {
+    try {
+      const instance = new Razorpay({ key_id: env.razorpayKeyId, key_secret: env.razorpayKeySecret });
+      const amountInPaise = Math.round(purchase.amount * 100);
+      razorpayRefund = await instance.payments.refund(purchase.razorpayPaymentId, {
+        amount: amountInPaise,
+        notes: { reason: refundReason || "Admin initiated refund", purchaseId: purchase._id.toString() }
+      });
+    } catch (err) {
+      console.error("[Razorpay Refund Error]:", err);
+    }
+  }
+
+  purchase.status = "cancelled";
+  purchase.adminNote = (purchase.adminNote ? purchase.adminNote + "\n" : "") + `[REFUNDED] ${refundReason || "Admin processed refund"}${razorpayRefund ? ` (Refund ID: ${razorpayRefund.id})` : ""}`;
+  await purchase.save();
+
+  try {
+    if (purchase.userId?.email) {
+      await sendRefundConfirmationEmail({
+        user: purchase.userId,
+        itemTitle: purchase.bookId?.title || "Book Purchase",
+        amount: purchase.amount,
+        paymentId: paymentId || "N/A",
+        refundId: razorpayRefund?.id || "PROCESSED",
+        reason: refundReason || "Admin initiated refund"
+      });
+    }
+  } catch (emailErr) {
+    console.error("[Email Error] Refund notification email failed:", emailErr);
+  }
+
+  res.json({
+    success: true,
+    message: `Refund of ₹${purchase.amount} processed successfully!`,
+    purchase,
+    refundId: razorpayRefund?.id
   });
 });
 

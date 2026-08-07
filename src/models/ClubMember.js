@@ -66,6 +66,11 @@ const clubMemberSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    portfolioUrl: {
+      type: String,
+      trim: true,
+      default: "",
+    },
   },
   {
     timestamps: true,

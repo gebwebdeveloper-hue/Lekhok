@@ -8,6 +8,7 @@ import {
   addAdminMember,
   updateAdminMember,
   deleteAdminMember,
+  refundAdminMember,
 } from "../controllers/club.controller.js";
 import { requireAuth, requireRole } from "../middlewares/auth.middleware.js";
 
@@ -23,6 +24,7 @@ router.post("/verify-payment", verifyClubPayment);
 router.get("/admin/members", requireAuth, requireRole("admin"), getAdminMembers);
 router.post("/admin/members", requireAuth, requireRole("admin"), addAdminMember);
 router.put("/admin/members/:id", requireAuth, requireRole("admin"), updateAdminMember);
+router.post("/admin/members/:id/refund", requireAuth, requireRole("admin"), refundAdminMember);
 router.delete("/admin/members/:id", requireAuth, requireRole("admin"), deleteAdminMember);
 
 export default router;

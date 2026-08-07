@@ -1178,4 +1178,63 @@ export async function sendClubMemberConfirmationEmail({ fullName, email, phone, 
   }
 }
 
+export async function sendRefundConfirmationEmail({ user, itemTitle, amount, paymentId, refundId, reason }) {
+  const recipient = user?.email;
+  if (!recipient) return { skipped: true };
+
+  const subject = `Refund Processed - ₹${amount} - Lekhok Tripura`;
+  const htmlContent = `
+    <div style="font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#050505;color:#ffffff;padding:32px;border-radius:18px;max-width:680px;margin:0 auto;border:1px solid #1f2937">
+      <div style="text-align:center;padding-bottom:20px;border-bottom:2px solid #f59e0b;margin-bottom:24px">
+        <p style="letter-spacing:0.25em;text-transform:uppercase;color:#f59e0b;font-size:12px;font-weight:bold;margin:0 0 6px">LEKHOK TRIPURA</p>
+        <h1 style="font-size:26px;color:#ffffff;margin:0;font-weight:800">Refund Processed 💸</h1>
+        <p style="color:#94a3b8;font-size:13px;margin-top:6px">Your refund of ₹${amount} has been initiated.</p>
+      </div>
+
+      <p style="color:#e2e8f0;font-size:14px;line-height:1.6;margin-bottom:20px">
+        Hello <strong>${escapeHtml(user.name || "Customer")}</strong>,
+      </p>
+      <p style="color:#cbd5e1;font-size:14px;line-height:1.6;margin-bottom:24px">
+        A refund of <strong>₹${amount}</strong> for <strong>"${escapeHtml(itemTitle)}"</strong> has been processed back to your original payment method.
+      </p>
+
+      <div style="background:#0d0d0d;padding:20px;border-radius:14px;border:1px solid #1e293b;margin-bottom:24px">
+        <h3 style="font-size:14px;color:#ffffff;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 14px;border-bottom:1px solid #1e293b;padding-bottom:8px">Refund Receipt Details</h3>
+        <table style="width:100%;font-size:13px;color:#cbd5e1;border-collapse:collapse">
+          <tr><td style="padding:6px 0;color:#94a3b8">Item / Service:</td><td style="padding:6px 0;text-align:right;font-weight:bold;color:#ffffff">${escapeHtml(itemTitle)}</td></tr>
+          <tr><td style="padding:6px 0;color:#94a3b8">Refund Amount:</td><td style="padding:6px 0;text-align:right;font-weight:bold;color:#34d399;font-size:15px">₹${amount}</td></tr>
+          <tr><td style="padding:6px 0;color:#94a3b8">Original Txn ID:</td><td style="padding:6px 0;text-align:right;font-family:monospace;color:#38bdf8">${escapeHtml(paymentId || 'N/A')}</td></tr>
+          ${refundId ? `<tr><td style="padding:6px 0;color:#94a3b8">Refund Reference ID:</td><td style="padding:6px 0;text-align:right;font-family:monospace;color:#f59e0b">${escapeHtml(refundId)}</td></tr>` : ''}
+          ${reason ? `<tr><td style="padding:6px 0;color:#94a3b8">Reason / Note:</td><td style="padding:6px 0;text-align:right;color:#cbd5e1">${escapeHtml(reason)}</td></tr>` : ''}
+        </table>
+      </div>
+
+      <div style="background:#1e1b4b;padding:16px;border-radius:12px;border:1px solid #4338ca;margin-bottom:24px">
+        <p style="margin:0;font-size:13px;color:#e0e7ff;line-height:1.6">
+          <strong>Note:</strong> Depending on your bank or card issuer, funds usually reflect in your bank account or UPI within 3–7 business days.
+        </p>
+      </div>
+
+      <div style="border-top:1px solid #1f2937;padding-top:20px;text-align:center;font-size:12px;color:#64748b">
+        <p>If you have any questions, contact us at support@lekhoktripura.in</p>
+        <p style="margin-top:4px">© ${new Date().getFullYear()} Lekhok Tripura Publishers. Agartala, Tripura.</p>
+      </div>
+    </div>
+  `;
+
+  const textContent = `Refund Processed for "${itemTitle}"!\nAmount: ₹${amount}\nOriginal Txn: ${paymentId || 'N/A'}\nRefund Ref: ${refundId || "PROCESSED"}`;
+
+  if (env.resendApiKey) {
+    await sendEmailViaResend({ to: [recipient], subject, html: htmlContent, text: textContent });
+  } else {
+    await getTransport().sendMail({
+      from: env.smtp.from || "Lekhok Tripura <no-reply@lekhoktripura.in>",
+      to: recipient,
+      subject,
+      html: htmlContent,
+      text: textContent
+    });
+  }
+}
+
 

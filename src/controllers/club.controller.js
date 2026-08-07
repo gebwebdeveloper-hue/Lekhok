@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import Razorpay from "razorpay";
 import ClubMember from "../models/ClubMember.js";
-import { sendClubApplicationEmail, sendClubMemberConfirmationEmail } from "../services/mail.service.js";
+import { sendClubMemberConfirmationEmail, sendRefundConfirmationEmail } from "../services/mail.service.js";
 import { env } from "../config/env.js";
 
 // Club Membership Price Constants: ₹999 + 18% GST = ₹1178.82
@@ -253,7 +253,7 @@ export const getAdminMembers = async (req, res, next) => {
 // Admin: Add a new member directly
 export const addAdminMember = async (req, res, next) => {
   try {
-    const { fullName, email, phone, whatsapp, role, status, address, dateOfBirth, actionText, reason } = req.body;
+    const { fullName, email, phone, whatsapp, role, status, address, dateOfBirth, actionText, reason, portfolioUrl } = req.body;
 
     if (!fullName || !email || !phone) {
       return res.status(400).json({ success: false, message: "Name, Mail ID, and Phone Number are required." });
@@ -272,6 +272,7 @@ export const addAdminMember = async (req, res, next) => {
       dateOfBirth: (dateOfBirth || "").trim(),
       actionText: (actionText || "").trim(),
       reason: (reason || "").trim(),
+      portfolioUrl: (portfolioUrl || "").trim(),
     });
 
     res.status(201).json({
@@ -288,7 +289,7 @@ export const addAdminMember = async (req, res, next) => {
 export const updateAdminMember = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { fullName, email, phone, whatsapp, role, status, paymentStatus, address, dateOfBirth, actionText, reason } = req.body;
+    const { fullName, email, phone, whatsapp, role, status, paymentStatus, address, dateOfBirth, actionText, reason, portfolioUrl } = req.body;
 
     const member = await ClubMember.findById(id);
     if (!member) {
@@ -306,6 +307,7 @@ export const updateAdminMember = async (req, res, next) => {
     if (dateOfBirth !== undefined) member.dateOfBirth = dateOfBirth.trim();
     if (actionText !== undefined) member.actionText = actionText.trim();
     if (reason !== undefined) member.reason = reason.trim();
+    if (portfolioUrl !== undefined) member.portfolioUrl = portfolioUrl.trim();
 
     await member.save();
 
@@ -332,6 +334,64 @@ export const deleteAdminMember = async (req, res, next) => {
     res.status(200).json({
       success: true,
       message: "Club member deleted successfully.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Admin: Refund Club Member
+export const refundAdminMember = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { refundReason } = req.body;
+
+    const member = await ClubMember.findById(id);
+    if (!member) {
+      return res.status(404).json({ success: false, message: "Club member not found." });
+    }
+
+    let razorpayRefund = null;
+    const amountToRefund = member.amountPaid || 1178.82;
+
+    if (member.paymentId && env.razorpayKeyId && env.razorpayKeySecret) {
+      try {
+        const instance = new Razorpay({ key_id: env.razorpayKeyId, key_secret: env.razorpayKeySecret });
+        const amountInPaise = Math.round(amountToRefund * 100);
+        razorpayRefund = await instance.payments.refund(member.paymentId, {
+          amount: amountInPaise,
+          notes: { reason: refundReason || "Admin club refund", memberId: member._id.toString() }
+        });
+      } catch (err) {
+        console.error("[Razorpay Club Refund Error]:", err);
+      }
+    }
+
+    member.paymentStatus = "refunded";
+    member.status = "cancelled";
+    member.actionText = `Refunded ₹${amountToRefund}${razorpayRefund ? ` (Refund ID: ${razorpayRefund.id})` : ""}`;
+    await member.save();
+
+    try {
+      if (member.email) {
+        await sendRefundConfirmationEmail({
+          user: { name: member.fullName, email: member.email },
+          itemTitle: "Lekhok Tripura Readers & Writers Club Lifetime Membership",
+          amount: amountToRefund,
+          paymentId: member.paymentId || "N/A",
+          refundId: razorpayRefund?.id || "PROCESSED",
+          reason: refundReason || "Admin issued club refund"
+        });
+      }
+    } catch (emailErr) {
+      console.error("[Email Error] Club refund email failed:", emailErr);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Refund of ₹${amountToRefund} for ${member.fullName} processed successfully!`,
+      member,
+      refundId: razorpayRefund?.id
     });
   } catch (error) {
     next(error);

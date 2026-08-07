@@ -201,7 +201,7 @@ export async function sendPhysicalOrderEmail({ purchase, book, user }) {
   }
 
   const info = await getTransport().sendMail({
-    from: env.smtp.from || "LEKHAK <no-reply@lekhoktripura.in>",
+    from: env.smtp.from || "Lekhok Tripura <no-reply@lekhoktripura.in>",
     to: recipients,
     subject,
     html: htmlContent,

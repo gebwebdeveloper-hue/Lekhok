@@ -101,10 +101,16 @@ function getPlanPricing(planName, addons = []) {
   let addonsTotal = 0;
   if (Array.isArray(addons)) {
     addons.forEach((addonName) => {
-      for (const [key, price] of Object.entries(ADDON_PRICES)) {
-        if (addonName === key || addonName.startsWith(key) || key.startsWith(addonName)) {
-          addonsTotal += price;
-          break;
+      if (typeof addonName === "string" && addonName.toLowerCase().includes("poster")) {
+        const match = addonName.match(/(\d+)/);
+        const count = match ? parseInt(match[1], 10) : 1;
+        addonsTotal += 50 * count;
+      } else {
+        for (const [key, price] of Object.entries(ADDON_PRICES)) {
+          if (addonName === key || addonName.startsWith(key) || key.startsWith(addonName)) {
+            addonsTotal += price;
+            break;
+          }
         }
       }
     });

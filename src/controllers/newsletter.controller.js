@@ -357,6 +357,10 @@ export const updateAccessRequestStatus = asyncHandler(async (req, res) => {
   res.json({ success: true, request: accessReq });
 });
 
+// 18% GST applied on story access fee
+const GST_RATE = 0.18;
+const applyGST = (basePrice) => Math.round(Number(basePrice) * (1 + GST_RATE) * 100) / 100;
+
 // ─── Automated Story Razorpay Checkout ──────────────────────────────────────
 export const createStoryRazorpayOrder = asyncHandler(async (req, res) => {
   const { newsletterId, userName, userEmail, userPhone } = req.body;
@@ -373,7 +377,8 @@ export const createStoryRazorpayOrder = asyncHandler(async (req, res) => {
     throw new ApiError(500, "Razorpay API keys are missing on the server.");
   }
 
-  const amountInPaise = Math.round(newsletter.price * 100);
+  const finalAmountWithGST = applyGST(newsletter.price);
+  const amountInPaise = Math.round(finalAmountWithGST * 100);
   const receipt = `story_${Date.now()}_${newsletterId.slice(-4)}`;
 
   const instance = new Razorpay({ key_id: keyId, key_secret: keySecret });
@@ -404,7 +409,7 @@ export const createStoryRazorpayOrder = asyncHandler(async (req, res) => {
   if (accessReq) {
     accessReq.userName = userName;
     accessReq.userPhone = userPhone;
-    accessReq.amount = newsletter.price;
+    accessReq.amount = finalAmountWithGST;
     accessReq.paymentMethod = "razorpay";
     accessReq.razorpayOrderId = razorpayOrder.id;
     await accessReq.save();
@@ -414,7 +419,7 @@ export const createStoryRazorpayOrder = asyncHandler(async (req, res) => {
       userName,
       userEmail: formattedEmail,
       userPhone,
-      amount: newsletter.price,
+      amount: finalAmountWithGST,
       status: "pending",
       paymentMethod: "razorpay",
       razorpayOrderId: razorpayOrder.id

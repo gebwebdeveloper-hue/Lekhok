@@ -515,6 +515,91 @@ export async function sendSelfPublishingPlanEmail(application) {
   return info;
 }
 
+export async function sendSelfPublishingUserConfirmationEmail(application) {
+  const recipient = application.email;
+  if (!recipient) return { skipped: true };
+
+  const planPrices = {
+    basic: { base: 4999, gst: 899.82, total: 5898.82, name: "Basic Publishing Plan" },
+    essential: { base: 7999, gst: 1439.82, total: 9438.82, name: "Essential Publishing Plan" },
+    popular: { base: 11999, gst: 2159.82, total: 14158.82, name: "Popular Publishing Plan" },
+  };
+
+  const norm = String(application.planName || "").toLowerCase();
+  const pricing = norm.includes("essential") ? planPrices.essential : (norm.includes("popular") ? planPrices.popular : planPrices.basic);
+
+  const subject = `Registration Received - Self Publishing Plan (${application.bookTitle || 'Book Submission'}) - Lekhok Tripura`;
+
+  const htmlContent = `
+    <div style="font-family:'Segoe UI',Roboto,Arial,sans-serif;background:#050505;color:#ffffff;padding:32px;border-radius:18px;max-width:720px;margin:0 auto;border:1px solid #1f2937">
+      <div style="text-align:center;padding-bottom:20px;border-bottom:2px solid #38bdf8;margin-bottom:24px">
+        <p style="letter-spacing:0.25em;text-transform:uppercase;color:#38bdf8;font-size:12px;font-weight:bold;margin:0 0 6px">LEKHOK TRIPURA PUBLISHERS</p>
+        <h1 style="font-size:26px;color:#ffffff;margin:0;font-weight:800">Self Publishing Registration Received! 📚</h1>
+      </div>
+
+      <div style="background:#0d0d0d;padding:24px;border-radius:14px;border:1px solid #1e293b;margin-bottom:24px">
+        <h2 style="font-size:18px;color:#38bdf8;margin:0 0 12px">Dear ${escapeHtml(application.name || application.authorName || 'Author')},</h2>
+        <p style="color:#cbd5e1;font-size:14px;line-height:1.6;margin:0 0 16px">
+          Thank you for registering your book <strong>"${escapeHtml(application.bookTitle || 'Your Book')}"</strong> with <strong>Lekhok Tripura Publishers</strong>!
+        </p>
+        <p style="color:#cbd5e1;font-size:14px;line-height:1.6;margin:0">
+          Your payment of <strong>₹${pricing.total.toFixed(2)}</strong> (Base ₹${pricing.base.toFixed(2)} + 18% GST ₹${pricing.gst.toFixed(2)}) has been verified. Your <strong>BOOK SKU No.</strong> will be assigned and shared with you shortly after manuscript verification.
+        </p>
+      </div>
+
+      <!-- Registration Summary Table -->
+      <div style="background:#0d0d0d;padding:20px;border-radius:14px;border:1px solid #1e293b;margin-bottom:24px">
+        <h3 style="font-size:14px;color:#ffffff;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 14px;border-bottom:1px solid #1e293b;padding-bottom:8px">Payment &amp; Registration Details</h3>
+        <table style="width:100%;font-size:13px;color:#cbd5e1;border-collapse:collapse">
+          <tr><td style="padding:6px 0;color:#94a3b8">Publishing Plan:</td><td style="padding:6px 0;text-align:right;font-weight:bold;color:#38bdf8">${escapeHtml(application.planName || pricing.name)}</td></tr>
+          <tr><td style="padding:6px 0;color:#94a3b8">Plan Base Fee:</td><td style="padding:6px 0;text-align:right;color:#ffffff">₹${pricing.base.toFixed(2)}</td></tr>
+          <tr><td style="padding:6px 0;color:#94a3b8">GST (18%):</td><td style="padding:6px 0;text-align:right;color:#ffffff">₹${pricing.gst.toFixed(2)}</td></tr>
+          <tr style="border-top:1px solid #334155"><td style="padding:8px 0;font-weight:bold;color:#ffffff">Total Amount Paid:</td><td style="padding:8px 0;text-align:right;font-weight:bold;font-size:15px;color:#34d399">₹${pricing.total.toFixed(2)}</td></tr>
+          ${application.paymentId ? `<tr><td style="padding:6px 0;color:#94a3b8">Transaction ID:</td><td style="padding:6px 0;text-align:right;font-family:monospace;color:#38bdf8">${escapeHtml(application.paymentId)}</td></tr>` : ''}
+          ${application.bookTitle ? `<tr><td style="padding:6px 0;color:#94a3b8">Book Title:</td><td style="padding:6px 0;text-align:right;font-weight:bold;color:#ffffff">${escapeHtml(application.bookTitle)}</td></tr>` : ''}
+          ${application.authorName ? `<tr><td style="padding:6px 0;color:#94a3b8">Author Name (Cover):</td><td style="padding:6px 0;text-align:right;font-weight:bold;color:#ffffff">${escapeHtml(application.authorName)}</td></tr>` : ''}
+          ${application.language ? `<tr><td style="padding:6px 0;color:#94a3b8">Language:</td><td style="padding:6px 0;text-align:right;color:#38bdf8">${escapeHtml(application.language)}</td></tr>` : ''}
+          ${application.genre ? `<tr><td style="padding:6px 0;color:#94a3b8">Book Genre:</td><td style="padding:6px 0;text-align:right;color:#ffffff">${escapeHtml(application.genre)}</td></tr>` : ''}
+          ${application.totalPages ? `<tr><td style="padding:6px 0;color:#94a3b8">Total Number of Pages:</td><td style="padding:6px 0;text-align:right;color:#ffffff">${escapeHtml(application.totalPages)}</td></tr>` : ''}
+          ${application.bookSize ? `<tr><td style="padding:6px 0;color:#94a3b8">Book Size:</td><td style="padding:6px 0;text-align:right;color:#ffffff">${escapeHtml(application.bookSize)}</td></tr>` : ''}
+          ${application.paperType ? `<tr><td style="padding:6px 0;color:#94a3b8">Paper Type:</td><td style="padding:6px 0;text-align:right;color:#ffffff">${escapeHtml(application.paperType)}</td></tr>` : ''}
+          ${application.printType ? `<tr><td style="padding:6px 0;color:#94a3b8">Print Type:</td><td style="padding:6px 0;text-align:right;color:#ffffff">${escapeHtml(application.printType)}</td></tr>` : ''}
+          ${application.bookType ? `<tr><td style="padding:6px 0;color:#94a3b8">Book Type:</td><td style="padding:6px 0;text-align:right;color:#38bdf8;font-weight:bold">${escapeHtml(application.bookType)}</td></tr>` : ''}
+          ${application.copies ? `<tr><td style="padding:6px 0;color:#94a3b8">Initial Copies Required:</td><td style="padding:6px 0;text-align:right;color:#34d399;font-weight:bold">${escapeHtml(application.copies)} Copies</td></tr>` : ''}
+        </table>
+      </div>
+
+      <div style="background:#1e1b4b;padding:20px;border-radius:14px;border:1px solid #4338ca;margin-bottom:24px">
+        <h3 style="font-size:14px;color:#a5b4fc;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 8px">📌 What Happens Next?</h3>
+        <ol style="margin:0;padding-left:20px;color:#e0e7ff;font-size:13px;line-height:1.8">
+          <li>Our editorial desk will review your submission within 24–48 hours.</li>
+          <li>Your unique <strong>BOOK SKU No.</strong> and dedicated publishing manager will be assigned.</li>
+          <li>We will contact you via Phone / Email to guide you through manuscript formatting, cover design, and printing.</li>
+        </ol>
+      </div>
+
+      <div style="border-top:1px solid #1f2937;padding-top:20px;text-align:center;font-size:12px;color:#64748b">
+        <p>If you have any questions, reply to this email or reach us at support@lekhoktripura.in</p>
+        <p style="margin-top:4px">© ${new Date().getFullYear()} Lekhok Tripura Publishers. Agartala, Tripura.</p>
+      </div>
+    </div>
+  `;
+
+  const textContent = `Self Publishing Registration Received for "${application.bookTitle}"!\nThank you ${application.name}. Total Paid: ₹${pricing.total.toFixed(2)}. Your BOOK SKU No. will be shared shortly after verification.`;
+
+  if (env.resendApiKey) {
+    await sendEmailViaResend({ to: [recipient], subject, html: htmlContent, text: textContent });
+  } else {
+    await getTransport().sendMail({
+      from: env.smtp.from || "Lekhok Tripura <no-reply@lekhoktripura.in>",
+      to: recipient,
+      subject,
+      html: htmlContent,
+      text: textContent,
+    });
+  }
+}
+
 export async function sendSubscriptionEmail(email) {
   const recipients = env.adminEmails;
   if (!recipients.length) {
@@ -980,6 +1065,116 @@ export async function sendNewStoryNotificationToSubscribers(story) {
     return { count: emails.length };
   } catch (error) {
     console.error("[Email] Failed to send new story notification:", error);
+  }
+}
+
+export async function sendClubMemberConfirmationEmail({ fullName, email, phone, role, amountPaid, paymentId, date }) {
+  try {
+    const subject = `Welcome to Lekhok Tripura Club! Payment Confirmation & Receipt`;
+    const formattedAmount = Number(amountPaid || 1178.82).toFixed(2);
+    const dateStr = date || new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+
+    const htmlContent = `
+      <div style="font-family:'Segoe UI',Roboto,Arial,sans-serif;background:#050505;color:#ffffff;padding:32px;border-radius:18px;max-width:680px;margin:0 auto;border:1px solid #1f2937">
+        <div style="text-align:center;padding-bottom:20px;border-bottom:2px solid #38bdf8;margin-bottom:24px">
+          <p style="letter-spacing:0.25em;text-transform:uppercase;color:#38bdf8;font-size:12px;font-weight:bold;margin:0 0 6px">LEKHOK TRIPURA PUBLISHERS</p>
+          <h1 style="font-size:26px;color:#ffffff;margin:0;font-weight:800">Welcome to Our Club! 🎉</h1>
+        </div>
+
+        <div style="background:#0d0d0d;padding:24px;border-radius:14px;border:1px solid #1e293b;margin-bottom:24px">
+          <h2 style="font-size:18px;color:#38bdf8;margin:0 0 12px">Dear ${escapeHtml(fullName)},</h2>
+          <p style="color:#cbd5e1;font-size:14px;line-height:1.6;margin:0 0 16px">
+            Thank you for joining the <strong>Lekhok Tripura Readers & Writers Club</strong>! We are thrilled to welcome you to our growing community of authors, poets, and literature enthusiasts.
+          </p>
+          <p style="color:#cbd5e1;font-size:14px;line-height:1.6;margin:0">
+            Your club membership payment of <strong>₹${formattedAmount}</strong> (Base ₹999 + 18% GST ₹179.82) has been successfully received and processed.
+          </p>
+        </div>
+
+        <!-- Receipt Table -->
+        <div style="background:#0d0d0d;padding:20px;border-radius:14px;border:1px solid #1e293b;margin-bottom:24px">
+          <h3 style="font-size:15px;color:#ffffff;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 14px;border-bottom:1px solid #1e293b;padding-bottom:8px">Membership Payment Receipt</h3>
+          <table style="width:100%;font-size:13px;color:#cbd5e1;border-collapse:collapse">
+            <tr>
+              <td style="padding:6px 0;color:#94a3b8">Member Name:</td>
+              <td style="padding:6px 0;text-align:right;font-weight:bold;color:#ffffff">${escapeHtml(fullName)}</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;color:#94a3b8">Email Address:</td>
+              <td style="padding:6px 0;text-align:right;font-weight:bold;color:#ffffff">${escapeHtml(email)}</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;color:#94a3b8">Phone Number:</td>
+              <td style="padding:6px 0;text-align:right;font-weight:bold;color:#ffffff">${escapeHtml(phone)}</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;color:#94a3b8">Membership Tier:</td>
+              <td style="padding:6px 0;text-align:right;font-weight:bold;color:#38bdf8">${escapeHtml(role || "Member")} (Lifetime Access)</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;color:#94a3b8">Base Membership Fee:</td>
+              <td style="padding:6px 0;text-align:right;color:#ffffff">₹999.00</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;color:#94a3b8">GST (18%):</td>
+              <td style="padding:6px 0;text-align:right;color:#ffffff">₹179.82</td>
+            </tr>
+            <tr style="border-top:1px solid #334155">
+              <td style="padding:10px 0;font-weight:bold;color:#ffffff">Total Amount Paid:</td>
+              <td style="padding:10px 0;text-align:right;font-weight:bold;font-size:16px;color:#34d399">₹${formattedAmount}</td>
+            </tr>
+            ${paymentId ? `
+            <tr>
+              <td style="padding:6px 0;color:#94a3b8">Transaction ID:</td>
+              <td style="padding:6px 0;text-align:right;font-family:monospace;color:#38bdf8">${escapeHtml(paymentId)}</td>
+            </tr>` : ''}
+            <tr>
+              <td style="padding:6px 0;color:#94a3b8">Date of Payment:</td>
+              <td style="padding:6px 0;text-align:right;color:#ffffff">${dateStr}</td>
+            </tr>
+          </table>
+        </div>
+
+        <div style="background:#1e1b4b;padding:20px;border-radius:14px;border:1px solid #4338ca;margin-bottom:24px">
+          <h3 style="font-size:14px;color:#a5b4fc;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 10px">🎁 Your Member Benefits</h3>
+          <ul style="margin:0;padding-left:20px;color:#e0e7ff;font-size:13px;line-height:1.8">
+            <li>10% Lifetime Discount on book publishing services</li>
+            <li>20 Customized Author Visiting Cards</li>
+            <li>1 Official Club Badge & Membership Card</li>
+            <li>Access to Hardcopy & Paperback book library</li>
+            <li>Priority entry to literary events & workshops</li>
+          </ul>
+        </div>
+
+        <div style="text-align:center;margin:32px 0">
+          <a href="${env.clientUrl}/club" style="background:linear-gradient(to right, #38bdf8, #818cf8);color:#000000;padding:14px 32px;border-radius:14px;font-weight:800;font-size:14px;text-decoration:none;display:inline-block">
+            View Club Page →
+          </a>
+        </div>
+
+        <div style="border-top:1px solid #1f2937;padding-top:20px;text-align:center;font-size:12px;color:#64748b">
+          <p>For any queries regarding your membership, contact us at support@lekhoktripura.in</p>
+          <p style="margin-top:4px">© ${new Date().getFullYear()} Lekhok Tripura Publishers. Agartala, Tripura.</p>
+        </div>
+      </div>
+    `;
+
+    const textContent = `Welcome to Lekhok Tripura Club, ${fullName}!\nYour membership payment of ₹${formattedAmount} (₹999 + 18% GST) is confirmed.\nTxn ID: ${paymentId || "CONFIRMED"}`;
+
+    if (env.resendApiKey) {
+      await sendEmailViaResend({ to: [email], subject, html: htmlContent, text: textContent });
+    } else {
+      await getTransport().sendMail({
+        from: env.smtp.from || "Lekhok Tripura <no-reply@lekhoktripura.in>",
+        to: email,
+        subject,
+        html: htmlContent,
+        text: textContent,
+      });
+    }
+    console.log(`[Email] Club member confirmation sent to ${email}`);
+  } catch (error) {
+    console.error("[Email] Failed to send club member confirmation email:", error);
   }
 }
 

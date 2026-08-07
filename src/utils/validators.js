@@ -254,21 +254,31 @@ export const freePublishingSchema = {
 
 export const selfPublishingPlanSchema = {
   body: Joi.object({
-    planName: Joi.string().trim().max(100).required(),
-    name: Joi.string().trim().max(120).required(),
+    planName: Joi.string().trim().max(100).allow(""),
+    name: Joi.string().trim().max(120).allow(""),
     phone: Joi.string().trim().pattern(/^[0-9]+$/).min(8).max(20).required().messages({
       "string.pattern.base": "Phone number must contain only numbers."
     }),
     email: emailSchema,
+    bookTitle: Joi.string().trim().max(300).required(),
+    subtitle: Joi.string().trim().max(300).allow(""),
+    authorName: Joi.string().trim().max(180).allow(""),
+    language: Joi.string().trim().max(100).allow(""),
+    customLanguage: Joi.string().trim().max(100).allow(""),
+    genre: Joi.string().trim().max(150).allow(""),
+    totalPages: Joi.string().trim().max(100).allow(""),
+    bookSize: Joi.string().trim().max(100).allow(""),
+    customBookSize: Joi.string().trim().max(100).allow(""),
+    paperType: Joi.string().trim().max(100).allow(""),
+    customPaperType: Joi.string().trim().max(100).allow(""),
+    printType: Joi.string().trim().max(100).allow(""),
+    bookType: Joi.string().trim().max(100).allow(""),
+    copies: Joi.string().trim().max(100).allow(""),
     address: Joi.string().trim().max(1500).allow(""),
-    bookTitle: Joi.string().trim().max(200).allow(""),
-    genre: Joi.string().trim().max(100).allow(""),
-    pageCount: Joi.string().trim().max(50).allow(""),
-    publishingType: Joi.string().trim().max(100).allow(""),
-    nominee: Joi.string().trim().max(500).allow(""),
     bookAbout: Joi.string().trim().max(3000).allow(""),
     note: Joi.string().trim().max(1500).allow(""),
-    addons: Joi.alternatives().try(Joi.string().allow(""), Joi.array().items(Joi.string())).allow(null, "")
+    addons: Joi.alternatives().try(Joi.string().allow(""), Joi.array().items(Joi.string())).allow(null, ""),
+    customAddon: Joi.string().trim().max(300).allow("")
   }).required()
 };
 

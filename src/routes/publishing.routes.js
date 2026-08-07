@@ -4,7 +4,10 @@ import path from "path";
 import fs from "fs";
 import { validate } from "../middlewares/validate.middleware.js";
 import { ApiError } from "../middlewares/error.middleware.js";
-import { sendFreePublishingEmail, sendSelfPublishingPlanEmail } from "../services/mail.service.js";
+import Razorpay from "razorpay";
+import crypto from "crypto";
+import { env } from "../config/env.js";
+import { sendFreePublishingEmail, sendSelfPublishingPlanEmail, sendSelfPublishingUserConfirmationEmail } from "../services/mail.service.js";
 import { freePublishingSchema, selfPublishingPlanSchema } from "../utils/validators.js";
 
 const router = Router();
@@ -62,9 +65,91 @@ router.post("/free", uploadManuscript, validate(freePublishingSchema), async (re
 });
 
 
+const PLAN_PRICES = {
+  basic: { base: 4999, gst: 899.82, total: 5898.82, name: "Basic Publishing Plan" },
+  essential: { base: 7999, gst: 1439.82, total: 9438.82, name: "Essential Publishing Plan" },
+  popular: { base: 11999, gst: 2159.82, total: 14158.82, name: "Popular Publishing Plan" },
+};
+
+function getPlanPricing(planName) {
+  const norm = String(planName || "").toLowerCase();
+  if (norm.includes("essential")) return PLAN_PRICES.essential;
+  if (norm.includes("popular")) return PLAN_PRICES.popular;
+  return PLAN_PRICES.basic;
+}
+
+router.post("/create-order", async (req, res, next) => {
+  try {
+    const { planName, name, email, phone } = req.body;
+    const keyId = env.razorpayKeyId;
+    const keySecret = env.razorpayKeySecret;
+    if (!keyId || !keySecret) {
+      throw new ApiError(500, "Razorpay API keys are not configured on the server.");
+    }
+
+    const pricing = getPlanPricing(planName);
+    const amountInPaise = Math.round(pricing.total * 100);
+    const receipt = `pub_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+
+    const instance = new Razorpay({ key_id: keyId, key_secret: keySecret });
+    const razorpayOrder = await instance.orders.create({
+      amount: amountInPaise,
+      currency: "INR",
+      receipt,
+      notes: {
+        planName: planName || pricing.name,
+        userEmail: email || "",
+        userName: name || "",
+        userPhone: phone || ""
+      }
+    });
+
+    res.status(201).json({
+      success: true,
+      orderId: razorpayOrder.id,
+      amount: razorpayOrder.amount,
+      currency: razorpayOrder.currency || "INR",
+      keyId,
+      pricing
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/verify-payment", async (req, res, next) => {
+  try {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      throw new ApiError(400, "Missing Razorpay verification parameters.");
+    }
+
+    const keySecret = env.razorpayKeySecret;
+    const body = `${razorpay_order_id}|${razorpay_payment_id}`;
+    const expectedSignature = crypto
+      .createHmac("sha256", keySecret)
+      .update(body)
+      .digest("hex");
+
+    if (expectedSignature !== razorpay_signature) {
+      throw new ApiError(400, "Invalid Razorpay payment signature.");
+    }
+
+    res.json({
+      success: true,
+      message: "Payment verified successfully.",
+      paymentId: razorpay_payment_id
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.post("/plan", uploadManuscript, validate(selfPublishingPlanSchema), async (req, res, next) => {
   try {
     let adminEmailSent = false;
+    let userEmailSent = false;
+
     try {
       await sendSelfPublishingPlanEmail({ ...req.body, manuscript: req.file });
       adminEmailSent = true;
@@ -72,10 +157,16 @@ router.post("/plan", uploadManuscript, validate(selfPublishingPlanSchema), async
       console.error("[Email] Failed to notify admin about self publishing plan inquiry:", error);
     }
 
-    res.status(201).json({ success: true, adminEmailSent });
+    try {
+      await sendSelfPublishingUserConfirmationEmail({ ...req.body });
+      userEmailSent = true;
+    } catch (error) {
+      console.error("[Email] Failed to send user confirmation email for self publishing:", error);
+    }
+
+    res.status(201).json({ success: true, adminEmailSent, userEmailSent });
   } catch (error) {
     next(error);
   }
 });
 export default router;
-

@@ -1,24 +1,28 @@
 import { Router } from "express";
-import { sendClubApplicationEmail } from "../services/mail.service.js";
-import { validate } from "../middlewares/validate.middleware.js";
-import { clubJoinSchema } from "../utils/validators.js";
+import {
+  getPublicMembers,
+  checkMembershipStatus,
+  createClubOrder,
+  verifyClubPayment,
+  getAdminMembers,
+  addAdminMember,
+  updateAdminMember,
+  deleteAdminMember,
+} from "../controllers/club.controller.js";
+import { requireAuth, requireRole } from "../middlewares/auth.middleware.js";
 
 const router = Router();
 
-router.post("/join", validate(clubJoinSchema), async (req, res, next) => {
-  try {
-    let adminEmailSent = false;
-    try {
-      await sendClubApplicationEmail(req.body);
-      adminEmailSent = true;
-    } catch (error) {
-      console.error("[Email] Failed to notify admin about club application:", error);
-    }
+// Public routes
+router.get("/members", getPublicMembers);
+router.get("/check-status", checkMembershipStatus);
+router.post("/create-order", createClubOrder);
+router.post("/verify-payment", verifyClubPayment);
 
-    res.status(201).json({ success: true, adminEmailSent });
-  } catch (error) {
-    next(error);
-  }
-});
+// Admin-only routes
+router.get("/admin/members", requireAuth, requireRole("admin"), getAdminMembers);
+router.post("/admin/members", requireAuth, requireRole("admin"), addAdminMember);
+router.put("/admin/members/:id", requireAuth, requireRole("admin"), updateAdminMember);
+router.delete("/admin/members/:id", requireAuth, requireRole("admin"), deleteAdminMember);
 
 export default router;

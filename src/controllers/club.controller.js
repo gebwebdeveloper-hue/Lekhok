@@ -9,6 +9,20 @@ const CLUB_BASE_FEE = 999;
 const GST_RATE = 0.18;
 export const CLUB_TOTAL_FEE = Math.round(CLUB_BASE_FEE * (1 + GST_RATE) * 100) / 100; // 1178.82
 
+// Generate unique Member ID in format LTCLUB-XXXX
+const generateMemberId = async () => {
+  let attempts = 0;
+  while (attempts < 20) {
+    const num = Math.floor(1000 + Math.random() * 9000); // 4-digit random number
+    const memberId = `LTCLUB-${num}`;
+    const exists = await ClubMember.exists({ memberId });
+    if (!exists) return memberId;
+    attempts++;
+  }
+  // Fallback: use timestamp-based suffix
+  return `LTCLUB-${Date.now().toString().slice(-4)}`;
+};
+
 // Public: Get all active club members
 export const getPublicMembers = async (req, res, next) => {
   try {
@@ -172,9 +186,15 @@ export const verifyClubPayment = async (req, res, next) => {
       member.paymentId = paymentId;
       member.orderId = orderId;
       member.amountPaid = CLUB_TOTAL_FEE;
+      // Assign memberId if this member doesn't have one yet
+      if (!member.memberId) {
+        member.memberId = await generateMemberId();
+      }
       await member.save();
     } else {
+      const newMemberId = await generateMemberId();
       member = await ClubMember.create({
+        memberId: newMemberId,
         fullName: fullName.trim(),
         email: cleanEmail,
         phone: phone.trim(),
@@ -198,6 +218,7 @@ export const verifyClubPayment = async (req, res, next) => {
         email: member.email,
         phone: member.phone,
         role: member.role,
+        memberId: member.memberId,
         amountPaid: CLUB_TOTAL_FEE,
         paymentId,
         date: new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }),
@@ -231,8 +252,47 @@ export const verifyClubPayment = async (req, res, next) => {
         email: member.email,
         phone: member.phone,
         role: member.role,
+        memberId: member.memberId,
         paymentId,
         amountPaid: CLUB_TOTAL_FEE,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Public: Verify a Member ID (for profile activation)
+export const verifyMemberId = async (req, res, next) => {
+  try {
+    const { memberId, email } = req.body;
+    if (!memberId || !email) {
+      return res.status(400).json({ success: false, message: "Member ID and email are required." });
+    }
+
+    const member = await ClubMember.findOne({
+      memberId: memberId.trim().toUpperCase(),
+      email: email.trim().toLowerCase(),
+      paymentStatus: "paid",
+      status: "active",
+    });
+
+    if (!member) {
+      return res.status(404).json({
+        success: false,
+        message: "Invalid Member ID or it does not match your registered email. Please check the confirmation email and try again.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      isMember: true,
+      member: {
+        memberId: member.memberId,
+        fullName: member.fullName,
+        email: member.email,
+        role: member.role,
+        createdAt: member.createdAt,
       },
     });
   } catch (error) {

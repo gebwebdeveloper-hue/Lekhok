@@ -51,11 +51,19 @@ export const createPurchaseRequest = asyncHandler(async (req, res) => {
   if (existingPending) return res.status(200).json({ success: true, purchase: existingPending, payment: { upiId: env.upiId, qr: env.upiQrImageUrl } });
 
   const screenshot = await persistUploadedFile(req.file, "payments", "image");
-  const baseAmount = format === "paperback"
+  const rawBaseAmount = format === "paperback"
     ? (book.paperbackPrice || book.price)
     : format === "hardcover"
     ? (book.hardcoverPrice || book.price)
     : book.price;
+
+  // Apply 5% club member discount on base price (before GST) if user is an active club member
+  const isClubMember = !!(req.user.memberId && req.user.memberId.startsWith("LTCLUB-"));
+  const clubDiscountRate = isClubMember ? 0.05 : 0;
+  const baseAmount = isClubMember
+    ? Math.round(rawBaseAmount * (1 - clubDiscountRate) * 100) / 100
+    : rawBaseAmount;
+
   const deliveryCharge = !isEbook ? getDeliveryCharge(req.body.state) : 0;
   const amount = applyGST(baseAmount) + deliveryCharge;
 
@@ -94,7 +102,10 @@ export const createPurchaseRequest = asyncHandler(async (req, res) => {
     success: true,
     purchase,
     adminEmailSent,
+    isClubMember,
+    clubDiscountApplied: isClubMember ? 5 : 0,
     payment: { upiId: env.upiId, qr: env.upiQrImageUrl }
+
   });
 });
 
@@ -223,11 +234,15 @@ export const createBatchPurchaseRequests = asyncHandler(async (req, res) => {
       : null;
     if (approved) continue;
 
-    const baseAmount = format === "paperback"
+    const isClubMember = !!(req.user.memberId && req.user.memberId.startsWith("LTCLUB-"));
+    const rawBaseAmount = format === "paperback"
       ? (book.paperbackPrice || book.price)
       : format === "hardcover"
       ? (book.hardcoverPrice || book.price)
       : book.price;
+    const baseAmount = isClubMember
+      ? Math.round(rawBaseAmount * 0.95 * 100) / 100
+      : rawBaseAmount;
     const deliveryCharge = !isEbook ? getDeliveryCharge(state) : 0;
     const amount = applyGST(baseAmount) + deliveryCharge;
 
@@ -566,11 +581,15 @@ export const createRazorpayOrder = asyncHandler(async (req, res) => {
       : null;
     if (approved) continue;
 
-    const itemBasePrice = format === "paperback"
+    const isClubMember = !!(req.user.memberId && req.user.memberId.startsWith("LTCLUB-"));
+    const rawItemBasePrice = format === "paperback"
       ? (book.paperbackPrice || book.price)
       : format === "hardcover"
       ? (book.hardcoverPrice || book.price)
       : book.price;
+    const itemBasePrice = isClubMember
+      ? Math.round(rawItemBasePrice * 0.95 * 100) / 100
+      : rawItemBasePrice;
     const itemPrice = applyGST(itemBasePrice);
 
     totalAmountINR += itemPrice;

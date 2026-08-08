@@ -17,7 +17,8 @@ const userSchema = new mongoose.Schema(
     block: { type: String, trim: true, maxlength: 80 },
     pin: { type: String, trim: true, maxlength: 10 },
     postOffice: { type: String, trim: true, maxlength: 80 },
-    nearbyLocation: { type: String, trim: true, maxlength: 200 }
+    nearbyLocation: { type: String, trim: true, maxlength: 200 },
+    memberId: { type: String, trim: true, default: "", index: true },
   },
   { timestamps: true }
 );

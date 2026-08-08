@@ -4,6 +4,7 @@ import {
   checkMembershipStatus,
   createClubOrder,
   verifyClubPayment,
+  verifyMemberId,
   getAdminMembers,
   addAdminMember,
   updateAdminMember,
@@ -19,6 +20,7 @@ router.get("/members", getPublicMembers);
 router.get("/check-status", checkMembershipStatus);
 router.post("/create-order", createClubOrder);
 router.post("/verify-payment", verifyClubPayment);
+router.post("/verify-member-id", verifyMemberId);
 
 // Admin-only routes
 router.get("/admin/members", requireAuth, requireRole("admin"), getAdminMembers);

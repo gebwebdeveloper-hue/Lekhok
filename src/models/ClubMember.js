@@ -2,6 +2,13 @@ import mongoose from "mongoose";
 
 const clubMemberSchema = new mongoose.Schema(
   {
+    memberId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+      default: "",
+    },
     fullName: {
       type: String,
       required: [true, "Full name is required"],

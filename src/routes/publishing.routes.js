@@ -86,17 +86,19 @@ const ADDON_PRICES = {
   "Roll-up Standee": 1500,
 };
 
-function getPlanPricing(planName, addons = []) {
+function getPlanPricing(planName, addons = [], isClubMember = false) {
   const norm = String(planName || "").toLowerCase();
-  let base = 4999;
+  let rawBase = 4999;
   let name = "Basic Publishing Plan";
   if (norm.includes("essential")) {
-    base = 9999;
+    rawBase = 9999;
     name = "Essential Publishing Plan";
   } else if (norm.includes("popular")) {
-    base = 14999;
+    rawBase = 14999;
     name = "Popular Publishing Plan";
   }
+
+  const base = isClubMember ? Math.round(rawBase * 0.90 * 100) / 100 : rawBase;
 
   let addonsTotal = 0;
   if (Array.isArray(addons)) {
@@ -120,19 +122,19 @@ function getPlanPricing(planName, addons = []) {
   const gst = subtotal * 0.18;
   const total = subtotal + gst;
 
-  return { name, base, addonsTotal, subtotal, gst, total };
+  return { name, base, rawBase, isClubMember, addonsTotal, subtotal, gst, total };
 }
 
 router.post("/create-order", async (req, res, next) => {
   try {
-    const { planName, name, email, phone, addons } = req.body;
+    const { planName, name, email, phone, addons, isClubMember } = req.body;
     const keyId = env.razorpayKeyId;
     const keySecret = env.razorpayKeySecret;
     if (!keyId || !keySecret) {
       throw new ApiError(500, "Razorpay API keys are not configured on the server.");
     }
 
-    const pricing = getPlanPricing(planName, addons);
+    const pricing = getPlanPricing(planName, addons, !!isClubMember);
     const amountInPaise = Math.round(pricing.total * 100);
     const receipt = `pub_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
 

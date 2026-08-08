@@ -1068,9 +1068,10 @@ export async function sendNewStoryNotificationToSubscribers(story) {
   }
 }
 
-export async function sendClubMemberConfirmationEmail({ fullName, email, phone, role, amountPaid, paymentId, date }) {
+export async function sendClubMemberConfirmationEmail({ fullName, email, phone, role, memberId, amountPaid, paymentId, date }) {
   try {
-    const subject = `Welcome to Lekhok Tripura Club! Payment Confirmation & Receipt`;
+    const memberIdDisplay = memberId || "LTCLUB-XXXX";
+    const subject = `Welcome to Lekhok Tripura Club! Your Member ID: ${memberIdDisplay}`;
     const formattedAmount = Number(amountPaid || 1178.82).toFixed(2);
     const dateStr = date || new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
 
@@ -1079,87 +1080,82 @@ export async function sendClubMemberConfirmationEmail({ fullName, email, phone, 
         <div style="text-align:center;padding-bottom:20px;border-bottom:2px solid #38bdf8;margin-bottom:24px">
           <p style="letter-spacing:0.25em;text-transform:uppercase;color:#38bdf8;font-size:12px;font-weight:bold;margin:0 0 6px">LEKHOK TRIPURA PUBLISHERS</p>
           <h1 style="font-size:26px;color:#ffffff;margin:0;font-weight:800">Welcome to Our Club! 🎉</h1>
+          <p style="color:#94a3b8;font-size:13px;margin-top:8px">Your lifetime membership is now active.</p>
         </div>
 
         <div style="background:#0d0d0d;padding:24px;border-radius:14px;border:1px solid #1e293b;margin-bottom:24px">
           <h2 style="font-size:18px;color:#38bdf8;margin:0 0 12px">Dear ${escapeHtml(fullName)},</h2>
-          <p style="color:#cbd5e1;font-size:14px;line-height:1.6;margin:0 0 16px">
-            Thank you for joining the <strong>Lekhok Tripura Readers & Writers Club</strong>! We are thrilled to welcome you to our growing community of authors, poets, and literature enthusiasts.
-          </p>
           <p style="color:#cbd5e1;font-size:14px;line-height:1.6;margin:0">
-            Your club membership payment of <strong>₹${formattedAmount}</strong> (Base ₹999 + 18% GST ₹179.82) has been successfully received and processed.
+            Thank you for joining the <strong>Lekhok Tripura Readers &amp; Writers Club</strong>! Your payment of <strong>&#8377;${formattedAmount}</strong> (Base &#8377;999 + 18% GST &#8377;179.82) has been confirmed.
           </p>
         </div>
 
-        <!-- Receipt Table -->
+        <!-- MEMBER ID HIGHLIGHT -->
+        <div style="background:linear-gradient(135deg,#0c2a3a,#0d1b2e);padding:28px 24px;border-radius:16px;border:2px solid #38bdf8;margin-bottom:24px;text-align:center">
+          <p style="font-size:11px;letter-spacing:0.3em;text-transform:uppercase;color:#38bdf8;margin:0 0 10px;font-weight:700">YOUR EXCLUSIVE MEMBER ID</p>
+          <div style="font-family:monospace;font-size:36px;font-weight:900;letter-spacing:0.12em;color:#ffffff;background:#0a1929;display:inline-block;padding:14px 28px;border-radius:12px;border:1px solid #38bdf8;margin-bottom:14px">${escapeHtml(memberIdDisplay)}</div>
+          <p style="font-size:12px;color:#94a3b8;margin:8px 0 0">Copy this ID — you need it to activate your member discounts from your Profile.</p>
+        </div>
+
+        <!-- HOW TO ACTIVATE -->
+        <div style="background:#0f1f0f;padding:22px 24px;border-radius:14px;border:1px solid #16a34a;margin-bottom:24px">
+          <h3 style="font-size:14px;color:#4ade80;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 14px">&#127919; How to Activate Your Member Discounts</h3>
+          <ol style="margin:0;padding-left:20px;color:#bbf7d0;font-size:13px;line-height:2.2">
+            <li>Log in to your account at <a href="${env.clientUrl}" style="color:#38bdf8;text-decoration:none">${env.clientUrl}</a></li>
+            <li>Click the <strong>Profile icon</strong> (top-right corner of the navbar)</li>
+            <li>Select <strong>&ldquo;Edit Profile&rdquo;</strong> from the dropdown menu</li>
+            <li>Scroll down to the <strong>&ldquo;Activate Club Membership&rdquo;</strong> section</li>
+            <li>Paste your Member ID: <span style="font-family:monospace;color:#38bdf8;background:#0a1929;padding:2px 8px;border-radius:4px">${escapeHtml(memberIdDisplay)}</span></li>
+            <li>Click <strong>&ldquo;Activate Membership&rdquo;</strong> &mdash; discounts unlock instantly!</li>
+          </ol>
+        </div>
+
+        <!-- DISCOUNT TABLE -->
+        <div style="background:#1e1b4b;padding:20px;border-radius:14px;border:1px solid #4338ca;margin-bottom:24px">
+          <h3 style="font-size:14px;color:#a5b4fc;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 14px">&#127873; Your Club Member Discounts</h3>
+          <table style="width:100%;border-collapse:separate;border-spacing:0 6px">
+            <tr>
+              <td style="padding:10px 14px;background:#0d0b2e;border-radius:8px 0 0 8px;font-size:14px;color:#e0e7ff">&#128218; Any Book Purchase</td>
+              <td style="padding:10px 16px;background:#0d0b2e;border-radius:0 8px 8px 0;font-size:20px;font-weight:900;color:#34d399;text-align:right">5% OFF</td>
+            </tr>
+            <tr>
+              <td style="padding:10px 14px;background:#0d0b2e;border-radius:8px 0 0 8px;font-size:14px;color:#e0e7ff">&#9997;&#65039; Next Book Publishing</td>
+              <td style="padding:10px 16px;background:#0d0b2e;border-radius:0 8px 8px 0;font-size:20px;font-weight:900;color:#a5b4fc;text-align:right">10% OFF</td>
+            </tr>
+          </table>
+          <p style="margin:14px 0 0;font-size:12px;color:#6366f1">Plus: 20 visiting cards, official badge, membership card &amp; priority publishing support.</p>
+        </div>
+
+        <!-- PAYMENT RECEIPT -->
         <div style="background:#0d0d0d;padding:20px;border-radius:14px;border:1px solid #1e293b;margin-bottom:24px">
           <h3 style="font-size:15px;color:#ffffff;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 14px;border-bottom:1px solid #1e293b;padding-bottom:8px">Membership Payment Receipt</h3>
           <table style="width:100%;font-size:13px;color:#cbd5e1;border-collapse:collapse">
-            <tr>
-              <td style="padding:6px 0;color:#94a3b8">Member Name:</td>
-              <td style="padding:6px 0;text-align:right;font-weight:bold;color:#ffffff">${escapeHtml(fullName)}</td>
-            </tr>
-            <tr>
-              <td style="padding:6px 0;color:#94a3b8">Email Address:</td>
-              <td style="padding:6px 0;text-align:right;font-weight:bold;color:#ffffff">${escapeHtml(email)}</td>
-            </tr>
-            <tr>
-              <td style="padding:6px 0;color:#94a3b8">Phone Number:</td>
-              <td style="padding:6px 0;text-align:right;font-weight:bold;color:#ffffff">${escapeHtml(phone)}</td>
-            </tr>
-            <tr>
-              <td style="padding:6px 0;color:#94a3b8">Membership Tier:</td>
-              <td style="padding:6px 0;text-align:right;font-weight:bold;color:#38bdf8">${escapeHtml(role || "Member")} (Lifetime Access)</td>
-            </tr>
-            <tr>
-              <td style="padding:6px 0;color:#94a3b8">Base Membership Fee:</td>
-              <td style="padding:6px 0;text-align:right;color:#ffffff">₹999.00</td>
-            </tr>
-            <tr>
-              <td style="padding:6px 0;color:#94a3b8">GST (18%):</td>
-              <td style="padding:6px 0;text-align:right;color:#ffffff">₹179.82</td>
-            </tr>
-            <tr style="border-top:1px solid #334155">
-              <td style="padding:10px 0;font-weight:bold;color:#ffffff">Total Amount Paid:</td>
-              <td style="padding:10px 0;text-align:right;font-weight:bold;font-size:16px;color:#34d399">₹${formattedAmount}</td>
-            </tr>
-            ${paymentId ? `
-            <tr>
-              <td style="padding:6px 0;color:#94a3b8">Transaction ID:</td>
-              <td style="padding:6px 0;text-align:right;font-family:monospace;color:#38bdf8">${escapeHtml(paymentId)}</td>
-            </tr>` : ''}
-            <tr>
-              <td style="padding:6px 0;color:#94a3b8">Date of Payment:</td>
-              <td style="padding:6px 0;text-align:right;color:#ffffff">${dateStr}</td>
-            </tr>
+            <tr><td style="padding:6px 0;color:#94a3b8">Member Name:</td><td style="padding:6px 0;text-align:right;font-weight:bold;color:#ffffff">${escapeHtml(fullName)}</td></tr>
+            <tr><td style="padding:6px 0;color:#94a3b8">Email Address:</td><td style="padding:6px 0;text-align:right;font-weight:bold;color:#ffffff">${escapeHtml(email)}</td></tr>
+            <tr><td style="padding:6px 0;color:#94a3b8">Phone Number:</td><td style="padding:6px 0;text-align:right;font-weight:bold;color:#ffffff">${escapeHtml(phone)}</td></tr>
+            <tr><td style="padding:6px 0;color:#94a3b8">Member ID:</td><td style="padding:6px 0;text-align:right;font-family:monospace;font-weight:900;color:#38bdf8;font-size:16px">${escapeHtml(memberIdDisplay)}</td></tr>
+            <tr><td style="padding:6px 0;color:#94a3b8">Membership Tier:</td><td style="padding:6px 0;text-align:right;font-weight:bold;color:#38bdf8">${escapeHtml(role || "Member")} (Lifetime)</td></tr>
+            <tr><td style="padding:6px 0;color:#94a3b8">Base Fee:</td><td style="padding:6px 0;text-align:right;color:#ffffff">&#8377;999.00</td></tr>
+            <tr><td style="padding:6px 0;color:#94a3b8">GST (18%):</td><td style="padding:6px 0;text-align:right;color:#ffffff">&#8377;179.82</td></tr>
+            <tr style="border-top:1px solid #334155"><td style="padding:10px 0;font-weight:bold;color:#ffffff">Total Paid:</td><td style="padding:10px 0;text-align:right;font-weight:bold;font-size:16px;color:#34d399">&#8377;${formattedAmount}</td></tr>
+            ${paymentId ? `<tr><td style="padding:6px 0;color:#94a3b8">Transaction ID:</td><td style="padding:6px 0;text-align:right;font-family:monospace;color:#38bdf8">${escapeHtml(paymentId)}</td></tr>` : ''}
+            <tr><td style="padding:6px 0;color:#94a3b8">Date:</td><td style="padding:6px 0;text-align:right;color:#ffffff">${dateStr}</td></tr>
           </table>
         </div>
 
-        <div style="background:#1e1b4b;padding:20px;border-radius:14px;border:1px solid #4338ca;margin-bottom:24px">
-          <h3 style="font-size:14px;color:#a5b4fc;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 10px">🎁 Your Member Benefits</h3>
-          <ul style="margin:0;padding-left:20px;color:#e0e7ff;font-size:13px;line-height:1.8">
-            <li>10% Lifetime Discount on book publishing services</li>
-            <li>20 Customized Author Visiting Cards</li>
-            <li>1 Official Club Badge & Membership Card</li>
-            <li>Access to Hardcopy & Paperback book library</li>
-            <li>Priority entry to literary events & workshops</li>
-          </ul>
-        </div>
-
         <div style="text-align:center;margin:32px 0">
-          <a href="${env.clientUrl}/club" style="background:linear-gradient(to right, #38bdf8, #818cf8);color:#000000;padding:14px 32px;border-radius:14px;font-weight:800;font-size:14px;text-decoration:none;display:inline-block">
-            View Club Page →
-          </a>
+          <a href="${env.clientUrl}/club" style="background:linear-gradient(to right,#38bdf8,#818cf8);color:#000000;padding:14px 32px;border-radius:14px;font-weight:800;font-size:14px;text-decoration:none;display:inline-block">View Club Page &#8594;</a>
         </div>
 
         <div style="border-top:1px solid #1f2937;padding-top:20px;text-align:center;font-size:12px;color:#64748b">
-          <p>For any queries regarding your membership, contact us at support@lekhoktripura.in</p>
-          <p style="margin-top:4px">© ${new Date().getFullYear()} Lekhok Tripura Publishers. Agartala, Tripura.</p>
+          <p>&#128274; Keep this email safe &mdash; your Member ID <strong style="color:#38bdf8">${escapeHtml(memberIdDisplay)}</strong> is needed to activate benefits.</p>
+          <p style="margin-top:6px">For queries, contact support@lekhoktripura.in</p>
+          <p style="margin-top:4px">&copy; ${new Date().getFullYear()} Lekhok Tripura Publishers. Agartala, Tripura.</p>
         </div>
       </div>
     `;
 
-    const textContent = `Welcome to Lekhok Tripura Club, ${fullName}!\nYour membership payment of ₹${formattedAmount} (₹999 + 18% GST) is confirmed.\nTxn ID: ${paymentId || "CONFIRMED"}`;
+    const textContent = `Welcome to Lekhok Tripura Club, ${fullName}!\n\nYour Member ID: ${memberIdDisplay}\n\n-- HOW TO ACTIVATE YOUR DISCOUNTS --\n1. Log in at ${env.clientUrl}\n2. Click your Profile icon (top-right corner)\n3. Select "Edit Profile"\n4. Scroll to "Activate Club Membership"\n5. Paste your Member ID: ${memberIdDisplay}\n6. Click "Activate Membership" — done!\n\nMember Discounts:\n- 5% OFF on any book purchase\n- 10% OFF on next book publishing\n\nPayment: Rs.${formattedAmount} confirmed.\nTxn ID: ${paymentId || "CONFIRMED"}\n\nKeep this email — your Member ID is needed to unlock discounts.`;
 
     if (env.resendApiKey) {
       await sendEmailViaResend({ to: [email], subject, html: htmlContent, text: textContent });

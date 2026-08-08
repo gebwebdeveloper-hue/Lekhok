@@ -212,7 +212,8 @@ export const googleLogin = asyncHandler(async (req, res) => {
     user.verified = true;
     user.lastLoginAt = new Date();
     if (userName && !user.name) user.name = userName.trim();
-    if (userPicture && !user.avatarUrl) user.avatarUrl = userPicture;
+    // Always update avatar from Google so it stays fresh
+    if (userPicture) user.avatarUrl = userPicture;
     if (role === "admin" && user.role !== "admin") user.role = "admin";
     await user.save();
   }

@@ -4,10 +4,10 @@ import ClubMember from "../models/ClubMember.js";
 import { sendClubMemberConfirmationEmail, sendRefundConfirmationEmail } from "../services/mail.service.js";
 import { env } from "../config/env.js";
 
-// Club Membership Price Constants: ₹999 + 18% GST = ₹1178.82
-const CLUB_BASE_FEE = 999;
+// Club Membership Price Constants: ₹1 (TESTING MODE — change back to 999 for production)
+const CLUB_BASE_FEE = 1;
 const GST_RATE = 0.18;
-export const CLUB_TOTAL_FEE = Math.round(CLUB_BASE_FEE * (1 + GST_RATE) * 100) / 100; // 1178.82
+export const CLUB_TOTAL_FEE = Math.round(CLUB_BASE_FEE * (1 + GST_RATE) * 100) / 100; // 1.18
 
 // Generate unique Member ID in format LTCLUB-XXXX
 const generateMemberId = async () => {

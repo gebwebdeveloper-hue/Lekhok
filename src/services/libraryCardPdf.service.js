@@ -316,3 +316,136 @@ export async function generateLibraryCardPdf(cardData) {
   };
 }
 
+/**
+ * Build the Club Membership Card PDF as an in-memory Buffer.
+ */
+export async function buildClubCardPdfBuffer(memberData) {
+  const baseUrl = env.serverUrl || (env.nodeEnv === "production" ? "https://lekhok.onrender.com" : "http://localhost:5000");
+  const qrContent = `${baseUrl}/club`;
+  let qrBuffer = null;
+  try {
+    qrBuffer = await QRCode.toBuffer(qrContent, {
+      width: 250,
+      margin: 1,
+      color: { dark: "#065f46", light: "#ffffff" }
+    });
+  } catch (err) {
+    console.error("[QR Code] Failed to generate buffer:", err);
+  }
+
+  let barcodeBuffer = null;
+  try {
+    barcodeBuffer = await bwipjs.toBuffer({
+      bcid: "code128",
+      text: memberData.memberId || "LTCLUB-DEMO01",
+      scale: 3,
+      height: 10,
+      includetext: true,
+      textxalign: "center",
+      backgroundcolor: "FFFFFF"
+    });
+  } catch (err) {
+    console.error("[Barcode] Failed to generate buffer:", err);
+  }
+
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({ size: [560, 590], margin: 0 });
+      const pass = new PassThrough();
+      const chunks = [];
+      pass.on("data", (chunk) => chunks.push(chunk));
+      pass.on("end", () => resolve(Buffer.concat(chunks)));
+      pass.on("error", reject);
+      doc.pipe(pass);
+
+      // Background
+      doc.rect(0, 0, 560, 590).fill("#f0fdf4");
+
+      // ==========================================
+      // CARD 1: FRONT SIDE
+      // ==========================================
+      const card1X = 20, card1Y = 20, cardWidth = 520, cardHeight = 260;
+
+      doc.roundedRect(card1X, card1Y, cardWidth, cardHeight, 16).fillAndStroke("#ffffff", "#bbf7d0");
+
+      doc.save();
+      doc.roundedRect(card1X, card1Y, cardWidth, cardHeight, 16).clip();
+      doc.moveTo(card1X, card1Y)
+        .lineTo(card1X + 175, card1Y)
+        .bezierCurveTo(card1X + 195, card1Y + 90, card1X + 145, card1Y + 170, card1X + 185, card1Y + cardHeight)
+        .lineTo(card1X, card1Y + cardHeight)
+        .closePath()
+        .fill("#064e3b");
+
+      const emblemCenterX = card1X + 85;
+      const emblemCenterY = card1Y + cardHeight / 2 - 10;
+
+      if (fs.existsSync(logoPath)) {
+        doc.image(logoPath, emblemCenterX - 48, emblemCenterY - 48, { width: 96, height: 96 });
+      }
+
+      doc.fillColor("#34d399").fontSize(9.5).font("Helvetica-Bold").text("OFFICIAL CLUB MEMBER", card1X + 10, card1Y + cardHeight - 32, { width: 155, align: "center" });
+      doc.restore();
+
+      const detailsX = card1X + 195;
+      const detailsY = card1Y + 14;
+
+      doc.fillColor("#065f46").fontSize(14).font("Helvetica-Bold").text("LEKHOK TRIPURA CLUB", detailsX, detailsY);
+      doc.fillColor("#047857").fontSize(8.5).font("Helvetica-Bold").text("DIGITAL MEMBERSHIP CARD", detailsX, detailsY + 17);
+
+      doc.moveTo(detailsX, detailsY + 28).lineTo(card1X + cardWidth - 16, detailsY + 28).lineWidth(1).strokeColor("#10b981").stroke();
+
+      const infoY = detailsY + 34;
+      const lineGap = 17;
+
+      doc.fillColor("#64748b").fontSize(7.5).font("Helvetica").text("MEMBER ID", detailsX, infoY);
+      doc.fillColor("#064e3b").fontSize(11).font("Helvetica-Bold").text(memberData.memberId || "LTCLUB-DEMO01", detailsX + 75, infoY - 1);
+
+      doc.fillColor("#64748b").fontSize(7.5).font("Helvetica").text("NAME", detailsX, infoY + lineGap);
+      doc.fillColor("#0f172a").fontSize(10).font("Helvetica-Bold").text(memberData.fullName || "Sample Member (Demo)", detailsX + 75, infoY + lineGap - 1, { width: 230 });
+
+      doc.fillColor("#64748b").fontSize(7.5).font("Helvetica").text("ROLE", detailsX, infoY + lineGap * 2);
+      doc.fillColor("#047857").fontSize(9.5).font("Helvetica-Bold").text(memberData.role || "Lifetime Member", detailsX + 75, infoY + lineGap * 2 - 1);
+
+      doc.fillColor("#64748b").fontSize(7.5).font("Helvetica").text("EMAIL", detailsX, infoY + lineGap * 3);
+      doc.fillColor("#334155").fontSize(8.5).font("Helvetica").text(memberData.email || "lekhok.tripura@gmail.com", detailsX + 75, infoY + lineGap * 3 - 1);
+
+      doc.fillColor("#64748b").fontSize(7.5).font("Helvetica").text("VALIDITY", detailsX, infoY + lineGap * 4);
+      doc.fillColor("#059669").fontSize(9).font("Helvetica-Bold").text("LIFETIME VALID", detailsX + 75, infoY + lineGap * 4 - 1);
+
+      if (qrBuffer) {
+        doc.image(qrBuffer, card1X + cardWidth - 96, infoY + lineGap * 3, { width: 80, height: 80 });
+      }
+
+      // ==========================================
+      // CARD 2: BACK SIDE
+      // ==========================================
+      const card2X = 20, card2Y = 305;
+      doc.roundedRect(card2X, card2Y, cardWidth, cardHeight, 16).fillAndStroke("#ffffff", "#bbf7d0");
+
+      doc.fillColor("#065f46").fontSize(12).font("Helvetica-Bold").text("LEKHOK TRIPURA CLUB - OFFICIAL MEMBER", card2X + 16, card2Y + 14);
+      doc.moveTo(card2X + 16, card2Y + 30).lineTo(card2X + cardWidth - 16, card2Y + 30).lineWidth(1).strokeColor("#10b981").stroke();
+
+      if (barcodeBuffer) {
+        doc.image(barcodeBuffer, card2X + 16, card2Y + 38, { width: 220, height: 50 });
+      }
+
+      const backTextY = card2Y + 98;
+      doc.fillColor("#334155").fontSize(8).font("Helvetica").text("1. This digital membership card grants lifetime 10% discount on book publishing.", card2X + 16, backTextY, { width: 480 });
+      doc.fillColor("#334155").fontSize(8).font("Helvetica").text("2. Includes priority branding, author visiting cards, & literary workshop invites.", card2X + 16, backTextY + 14, { width: 480 });
+      doc.fillColor("#334155").fontSize(8).font("Helvetica").text("3. Scan the QR code to verify member authenticity online at lekhoktripura.in.", card2X + 16, backTextY + 28, { width: 480 });
+
+      doc.moveTo(card2X + 16, card2Y + cardHeight - 32).lineTo(card2X + cardWidth - 16, card2Y + cardHeight - 32).lineWidth(0.5).strokeColor("#e2e8f0").stroke();
+
+      doc.fillColor("#047857").fontSize(8.5).font("Helvetica-Oblique").text(
+        "\"Connecting Readers, Writers & Literature Across Tripura.\"",
+        card2X + 16, card2Y + cardHeight - 22, { align: "left", width: 400 }
+      );
+
+      doc.end();
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+

@@ -1,13 +1,94 @@
 import crypto from "crypto";
 import Razorpay from "razorpay";
 import ClubMember from "../models/ClubMember.js";
+import { Author } from "../models/Author.js";
+import { Book } from "../models/Book.js";
+import { News } from "../models/News.js";
 import { sendClubMemberConfirmationEmail, sendRefundConfirmationEmail } from "../services/mail.service.js";
+import { buildClubCardPdfBuffer } from "../services/libraryCardPdf.service.js";
 import { env } from "../config/env.js";
 
-// Club Membership Price Constants: ₹999 + 18% GST = ₹1178.82
-const CLUB_BASE_FEE = 999;
-const GST_RATE = 0.18;
-export const CLUB_TOTAL_FEE = Math.round(CLUB_BASE_FEE * (1 + GST_RATE) * 100) / 100; // 1178.82
+// Club Membership Price Constants (Test Mode: ₹1)
+const CLUB_BASE_FEE = 1;
+const GST_RATE = 0;
+export const CLUB_TOTAL_FEE = 1; // ₹1 for testing
+
+// Public: Stream User's Real Official Club Membership Card PDF
+export const downloadClubCardPdf = async (req, res, next) => {
+  try {
+    const rawMemberId = (req.query.memberId || "").trim();
+    const rawEmail = (req.query.email || "").trim().toLowerCase();
+
+    let member = null;
+
+    // 1. Search by memberId if valid
+    if (rawMemberId && rawMemberId !== "undefined" && rawMemberId !== "null" && rawMemberId !== "demo") {
+      member = await ClubMember.findOne({
+        memberId: { $regex: new RegExp(`^${rawMemberId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") }
+      });
+    }
+
+    // 2. Search by email if not found yet
+    if (!member && rawEmail && rawEmail !== "undefined" && rawEmail !== "null") {
+      member = await ClubMember.findOne({
+        email: { $regex: new RegExp(`^${rawEmail.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") }
+      });
+    }
+
+    // 3. Search by authenticated user email if available
+    if (!member && req.user?.email) {
+      member = await ClubMember.findOne({
+        email: { $regex: new RegExp(`^${req.user.email.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") }
+      });
+    }
+
+    // 4. Return 404 if no matching member found
+    if (!member) {
+      return res.status(404).json({
+        success: false,
+        message: "No active club membership found for this account or Member ID."
+      });
+    }
+
+    const cardData = {
+      memberId: member.memberId || "LTCLUB-MEMBER",
+      fullName: member.fullName,
+      email: member.email,
+      role: member.role || "Lifetime Club Member",
+    };
+
+    const pdfBuffer = await buildClubCardPdfBuffer(cardData);
+    const fileName = `Club_Membership_Card_${cardData.memberId}.pdf`;
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="${fileName}"`);
+    res.setHeader("Content-Length", pdfBuffer.length);
+    res.send(pdfBuffer);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Public: Stream Demo Sample Club Membership Card PDF
+export const downloadDemoClubCardPdf = async (req, res, next) => {
+  try {
+    const cardData = {
+      memberId: "LTC-DEMO01",
+      fullName: "Sample Member (Demo)",
+      email: "lekhok.tripura@gmail.com",
+      role: "Lifetime Club Member",
+    };
+
+    const pdfBuffer = await buildClubCardPdfBuffer(cardData);
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="Demo_Club_Membership_Card.pdf"`);
+    res.setHeader("Content-Length", pdfBuffer.length);
+    res.send(pdfBuffer);
+  } catch (error) {
+    next(error);
+  }
+};
 
 // Generate unique Member ID in format LTCLUB-XXXX
 const generateMemberId = async () => {
@@ -21,6 +102,48 @@ const generateMemberId = async () => {
   }
   // Fallback: use timestamp-based suffix
   return `LTCLUB-${Date.now().toString().slice(-4)}`;
+};
+
+// Public: Get aggregated live stats (Members, Writers, Events, Books)
+export const getPublicStats = async (req, res, next) => {
+  try {
+    const [
+      activeMembersCount,
+      publicationAuthorsCount,
+      publicationBooksCount,
+      allBooksCount,
+      newsCount
+    ] = await Promise.all([
+      ClubMember.countDocuments({ status: "active" }),
+      Author.countDocuments({ ourPublicationAuthor: true }),
+      Book.countDocuments({ ourPublication: true }),
+      Book.countDocuments({}),
+      News.countDocuments({})
+    ]);
+
+    let writersCount = publicationAuthorsCount;
+    if (!writersCount) {
+      const pubBooks = await Book.find({ ourPublication: true }, "author");
+      const pubAuthors = new Set(pubBooks.map((b) => b.author?.trim().toLowerCase()).filter(Boolean));
+      writersCount = pubAuthors.size;
+    }
+
+    const membersCount = activeMembersCount;
+    const booksCount = publicationBooksCount > 0 ? publicationBooksCount : allBooksCount;
+    const eventsCount = newsCount;
+
+    res.status(200).json({
+      success: true,
+      stats: {
+        members: membersCount,
+        writers: writersCount,
+        events: eventsCount,
+        books: booksCount
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
 // Public: Get all active club members

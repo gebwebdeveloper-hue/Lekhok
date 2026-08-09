@@ -45,7 +45,19 @@ export const createRentalOrder = asyncHandler(async (req, res) => {
     throw new ApiError(400, "This book is currently on rent. Please check back later.");
   }
 
-  const rentalFee = book.rentalPrice || 50;
+  // Check if user has active library card OR active club membership for 5% discount
+  const libraryCard = await LibraryCard.findOne({ userId: req.user._id, status: "active" });
+  let isMemberCardHolder = !!libraryCard;
+
+  if (!isMemberCardHolder && req.user.email) {
+    const clubMember = await ClubMember.findOne({ email: req.user.email.toLowerCase(), status: "active" });
+    if (clubMember) isMemberCardHolder = true;
+  }
+
+  const baseRentalFee = book.rentalPrice || 50;
+  const discountAmount = isMemberCardHolder ? Number((baseRentalFee * 0.05).toFixed(2)) : 0;
+  const rentalFee = baseRentalFee - discountAmount;
+
   const gstAmount = Number((rentalFee * 0.18).toFixed(2));
   const totalAmount = Number((rentalFee + gstAmount).toFixed(2));
 

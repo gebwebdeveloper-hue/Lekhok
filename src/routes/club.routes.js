@@ -1,6 +1,9 @@
 import { Router } from "express";
 import {
   getPublicMembers,
+  getPublicStats,
+  downloadClubCardPdf,
+  downloadDemoClubCardPdf,
   checkMembershipStatus,
   createClubOrder,
   verifyClubPayment,
@@ -17,6 +20,9 @@ const router = Router();
 
 // Public routes
 router.get("/members", getPublicMembers);
+router.get("/stats", getPublicStats);
+router.get("/download/card", downloadClubCardPdf);
+router.get("/download/demo", downloadDemoClubCardPdf);
 router.get("/check-status", checkMembershipStatus);
 router.post("/create-order", createClubOrder);
 router.post("/verify-payment", verifyClubPayment);

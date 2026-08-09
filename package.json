@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
+    "bwip-js": "^4.11.2",
     "cloudinary": "^2.5.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -24,6 +25,7 @@
     "multer": "^2.2.0",
     "nodemailer": "^9.0.3",
     "pdfkit": "^0.19.1",
+    "qrcode": "^1.5.4",
     "razorpay": "^2.9.8",
     "slugify": "^1.6.6"
   },

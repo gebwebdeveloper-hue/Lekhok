@@ -3,6 +3,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { PassThrough } from "stream";
 import PDFDocument from "pdfkit";
+import QRCode from "qrcode";
+import bwipjs from "bwip-js";
 import { cloudinary } from "../config/cloudinary.js";
 import { env } from "../config/env.js";
 
@@ -108,6 +110,36 @@ export async function uploadPdfBufferToCloudinary(pdfBuffer, cardId) {
  * going through Cloudinary (useful when Cloudinary has restricted delivery).
  */
 export async function buildLibraryCardPdfBuffer(cardData) {
+  // Generate real scannable QR Code buffer pointing to the direct Library Card PDF URL
+  const baseUrl = env.serverUrl || (env.nodeEnv === "production" ? "https://lekhok.onrender.com" : "http://localhost:5000");
+  const qrContent = `${baseUrl}/api/library-card/download/${cardData.cardId}`;
+  let qrBuffer = null;
+  try {
+    qrBuffer = await QRCode.toBuffer(qrContent, {
+      width: 250,
+      margin: 1,
+      color: { dark: "#111111", light: "#ffffff" }
+    });
+  } catch (err) {
+    console.error("[QR Code] Failed to generate buffer:", err);
+  }
+
+  // Generate real scannable Code128 Barcode buffer
+  let barcodeBuffer = null;
+  try {
+    barcodeBuffer = await bwipjs.toBuffer({
+      bcid: "code128",
+      text: cardData.cardId,
+      scale: 3,
+      height: 10,
+      includetext: true,
+      textxalign: "center",
+      backgroundcolor: "FFFFFF"
+    });
+  } catch (err) {
+    console.error("[Barcode] Failed to generate buffer:", err);
+  }
+
   return new Promise((resolve, reject) => {
     try {
       const doc = new PDFDocument({ size: [560, 590], margin: 0 });
@@ -162,7 +194,12 @@ export async function buildLibraryCardPdfBuffer(cardData) {
       doc.fillColor("#52525b").fontSize(10).font("Helvetica").text("CARD ID:", rightX, card1Y + 142);
       doc.fillColor("#111111").fontSize(15).font("Helvetica-Bold").text(cardData.cardId, rightX + 62, card1Y + 139);
 
-      drawQrCodeGraphic(doc, card1X + cardWidth - 56, card1Y + 22, 38);
+      if (qrBuffer) {
+        doc.roundedRect(card1X + cardWidth - 62, card1Y + 18, 48, 48, 6).fillAndStroke("#ffffff", "#111111");
+        doc.image(qrBuffer, card1X + cardWidth - 60, card1Y + 20, { width: 44, height: 44 });
+      } else {
+        drawQrCodeGraphic(doc, card1X + cardWidth - 56, card1Y + 22, 38);
+      }
 
       doc.save();
       doc.roundedRect(card1X, card1Y, cardWidth, cardHeight, 16).clip();
@@ -219,15 +256,31 @@ export async function buildLibraryCardPdfBuffer(cardData) {
         }
       ];
       detailsData.forEach((item) => {
+        doc.font("Helvetica").fontSize(8.5);
+        const textVal = item.value || "N/A";
+        const valHeight = doc.heightOfString(textVal, { width: 195, lineGap: 2 });
+        const textHeight = Math.max(12, valHeight);
+
         doc.fillColor("#52525b").fontSize(8).font("Helvetica-Bold").text(item.label, detailsX, detailY, { width: labelW });
         doc.fillColor("#52525b").fontSize(8).font("Helvetica-Bold").text(":", detailsX + labelW, detailY);
-        doc.fillColor("#111111").fontSize(8.5).font("Helvetica").text(item.value || "N/A", detailsX + labelW + 10, detailY, { width: 195, lineGap: 2 });
-        const lineY = detailY + 14;
+        doc.fillColor("#111111").fontSize(8.5).font("Helvetica").text(textVal, detailsX + labelW + 10, detailY, { width: 195, lineGap: 2 });
+
+        const lineY = detailY + textHeight + 3;
         doc.moveTo(detailsX + labelW + 10, lineY).lineTo(card2X + cardWidth - 20, lineY).strokeColor("#e4e4e7").lineWidth(0.8).stroke();
-        detailY += item.label === "Address" ? 30 : 20;
+        detailY = lineY + 5;
       });
 
-      drawBarcodeGraphic(doc, card2X + cardWidth - 190, card2Y + cardHeight - 65, 170, 38, cardData.cardId);
+      const barcodeX = card2X + cardWidth - 190;
+      const barcodeY = card2Y + cardHeight - 65;
+      const barcodeW = 170;
+      const barcodeH = 38;
+
+      if (barcodeBuffer) {
+        doc.roundedRect(barcodeX, barcodeY, barcodeW, barcodeH, 4).fillAndStroke("#ffffff", "#111111");
+        doc.image(barcodeBuffer, barcodeX + 4, barcodeY + 2, { width: barcodeW - 8, height: barcodeH - 4 });
+      } else {
+        drawBarcodeGraphic(doc, barcodeX, barcodeY, barcodeW, barcodeH, cardData.cardId);
+      }
 
       doc.fillColor("#52525b").fontSize(8.5).font("Helvetica-Oblique").text(
         "\"One Book, One Thought, One Transformation.\"",

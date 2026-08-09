@@ -252,11 +252,6 @@ export const downloadLibraryCardPdf = asyncHandler(async (req, res) => {
   const card = await LibraryCard.findOne({ cardId });
   if (!card) throw new ApiError(404, "Library card not found.");
 
-  // Only the card owner or an admin can download
-  const isOwner = card.userId.toString() === req.user._id.toString();
-  const isAdmin = req.user.role === "admin";
-  if (!isOwner && !isAdmin) throw new ApiError(403, "Access denied.");
-
   // Generate PDF buffer in-memory (no Cloudinary fetch — bypasses delivery restrictions)
   const pdfBuffer = await buildLibraryCardPdfBuffer({
     cardId:           card.cardId,

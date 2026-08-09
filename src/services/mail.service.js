@@ -1233,4 +1233,188 @@ export async function sendRefundConfirmationEmail({ user, itemTitle, amount, pay
   }
 }
 
+export async function sendRentalConfirmationEmail({ rental, book, user }) {
+  const email = rental.renterEmail || user?.email;
+  if (!email) return { skipped: true };
+
+  const rentalFee = rental.rentalFee || 50;
+  const gstAmount = rental.gstAmount || Number((rentalFee * 0.18).toFixed(2));
+  const totalAmount = rental.totalAmount || Number((rentalFee + gstAmount).toFixed(2));
+  const startDateStr = new Date(rental.startDate || Date.now()).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  const dueDateStr = new Date(rental.dueDate).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+
+  const subject = `📖 Rental Confirmation & Payment Receipt - ${book.title}`;
+  const htmlContent = `
+    <div style="font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#050505;color:#ffffff;padding:32px;border-radius:18px;max-width:680px;margin:0 auto;border:1px solid #10b981">
+      <div style="text-align:center;padding-bottom:20px;border-bottom:2px solid #10b981;margin-bottom:24px">
+        <p style="letter-spacing:0.25em;text-transform:uppercase;color:#10b981;font-size:12px;font-weight:bold;margin:0 0 6px">LEKHOK TRIPURA PUBLISHERS</p>
+        <h1 style="font-size:24px;color:#ffffff;margin:0;font-weight:800">Rental Payment Receipt 🎉</h1>
+        <p style="color:#a1a1aa;font-size:13px;margin-top:6px">Order ID: <span style="font-family:monospace;color:#38bdf8">${escapeHtml(rental.orderId || rental._id)}</span></p>
+      </div>
+
+      <p style="color:#e2e8f0;font-size:14px;line-height:1.6;margin-bottom:16px">
+        Hello <strong>${escapeHtml(rental.renterName || user?.name || "Reader")}</strong>,
+      </p>
+      <p style="color:#cbd5e1;font-size:14px;line-height:1.6;margin-bottom:24px">
+        Thank you for renting with Lekhok Tripura! Your payment has been successfully confirmed. Below is your official rental receipt and pickup details.
+      </p>
+
+      <!-- SELF PICKUP LOCATION -->
+      <div style="background:#1c1917;padding:18px;border-radius:14px;border:1px solid #f59e0b;margin-bottom:24px">
+        <span style="background:#451a03;color:#fbbf24;font-size:10px;font-weight:bold;padding:3px 8px;border-radius:12px;text-transform:uppercase;letter-spacing:0.1em;border:1px solid #d97706">
+          📍 SELF PICKUP LOCATION
+        </span>
+        <h3 style="font-size:15px;color:#ffffff;margin:10px 0 4px;font-weight:700">Tarader Thikana</h3>
+        <p style="color:#fef3c7;font-size:13px;margin:0;line-height:1.5">
+          Madhuban kathaltali, Tarader Thikana, Agartala, Tripura 799003
+        </p>
+      </div>
+
+      <!-- RENTAL SUMMARY TABLE -->
+      <div style="background:#0d0d0d;padding:20px;border-radius:14px;border:1px solid #1e293b;margin-bottom:24px">
+        <h3 style="font-size:13px;color:#34d399;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 14px;border-bottom:1px solid #1e293b;padding-bottom:8px">Book &amp; Rental Window</h3>
+        <table style="width:100%;font-size:13px;color:#cbd5e1;border-collapse:collapse">
+          <tr><td style="padding:6px 0;color:#94a3b8">Book Title:</td><td style="padding:6px 0;text-align:right;font-weight:bold;color:#ffffff">${escapeHtml(book.title)}</td></tr>
+          <tr><td style="padding:6px 0;color:#94a3b8">Author:</td><td style="padding:6px 0;text-align:right;color:#ffffff">${escapeHtml(book.author)}</td></tr>
+          <tr><td style="padding:6px 0;color:#94a3b8">Rental Start Date:</td><td style="padding:6px 0;text-align:right;color:#38bdf8;font-weight:600">${escapeHtml(startDateStr)}</td></tr>
+          <tr><td style="padding:6px 0;color:#94a3b8">Return Due Date:</td><td style="padding:6px 0;text-align:right;color:#fbbf24;font-weight:bold">${escapeHtml(dueDateStr)}</td></tr>
+          <tr><td style="padding:6px 0;color:#94a3b8">Late Fine (If Overdue):</td><td style="padding:6px 0;text-align:right;color:#f87171">₹${rental.finePerDay || 5} / day</td></tr>
+        </table>
+      </div>
+
+      <!-- RENTER & DELIVERY INFORMATION -->
+      <div style="background:#0d0d0d;padding:20px;border-radius:14px;border:1px solid #1e293b;margin-bottom:24px">
+        <h3 style="font-size:13px;color:#38bdf8;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 14px;border-bottom:1px solid #1e293b;padding-bottom:8px">Renter &amp; Contact Info</h3>
+        <table style="width:100%;font-size:13px;color:#cbd5e1;border-collapse:collapse">
+          <tr><td style="padding:6px 0;color:#94a3b8">Renter Name:</td><td style="padding:6px 0;text-align:right;font-weight:bold;color:#ffffff">${escapeHtml(rental.renterName)}</td></tr>
+          <tr><td style="padding:6px 0;color:#94a3b8">Phone:</td><td style="padding:6px 0;text-align:right;font-family:monospace;color:#34d399">${escapeHtml(rental.renterPhone)}</td></tr>
+          <tr><td style="padding:6px 0;color:#94a3b8">Email:</td><td style="padding:6px 0;text-align:right;color:#ffffff">${escapeHtml(rental.renterEmail)}</td></tr>
+          ${rental.co ? `<tr><td style="padding:6px 0;color:#94a3b8">C/O:</td><td style="padding:6px 0;text-align:right;color:#cbd5e1">${escapeHtml(rental.co)}</td></tr>` : ''}
+          <tr><td style="padding:6px 0;color:#94a3b8">Resident Address:</td><td style="padding:6px 0;text-align:right;color:#cbd5e1">${escapeHtml(rental.deliveryAddress)}</td></tr>
+        </table>
+      </div>
+
+      <!-- PAYMENT RECEIPT BREAKDOWN -->
+      <div style="background:#062016;padding:20px;border-radius:14px;border:1px solid #059669;margin-bottom:24px">
+        <h3 style="font-size:13px;color:#34d399;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 14px;border-bottom:1px solid #047857;padding-bottom:8px">Payment Receipt &amp; Tax Invoice</h3>
+        <table style="width:100%;font-size:13px;color:#e2e8f0;border-collapse:collapse">
+          <tr><td style="padding:6px 0;color:#a7f3d0">Base Rental Fee (${book.rentalDurationDays || 15} Days):</td><td style="padding:6px 0;text-align:right;font-weight:600">₹${rentalFee.toFixed(2)}</td></tr>
+          <tr><td style="padding:6px 0;color:#a7f3d0">GST (18%):</td><td style="padding:6px 0;text-align:right;font-weight:600">+ ₹${gstAmount.toFixed(2)}</td></tr>
+          <tr style="border-top:1px solid #047857"><td style="padding:10px 0 6px;color:#ffffff;font-weight:bold;font-size:14px">Total Amount Paid:</td><td style="padding:10px 0 6px;text-align:right;font-weight:800;color:#34d399;font-size:16px">₹${totalAmount.toFixed(2)}</td></tr>
+          <tr><td style="padding:6px 0;color:#a7f3d0">Payment Status:</td><td style="padding:6px 0;text-align:right;font-weight:bold;color:#34d399">PAID (CONFIRMED)</td></tr>
+          <tr><td style="padding:6px 0;color:#a7f3d0">Txn / Payment Ref:</td><td style="padding:6px 0;text-align:right;font-family:monospace;color:#38bdf8">${escapeHtml(rental.paymentId || 'CONFIRMED')}</td></tr>
+        </table>
+      </div>
+
+      <div style="border-top:1px solid #1f2937;padding-top:20px;text-align:center;font-size:12px;color:#64748b">
+        <p>If you have any questions about your rental, contact us at support@lekhoktripura.in</p>
+        <p style="margin-top:4px">&copy; ${new Date().getFullYear()} Lekhok Tripura Publishers. Agartala, Tripura.</p>
+      </div>
+    </div>
+  `;
+
+  const textContent = `Rental Confirmation & Payment Receipt\n\nBook: ${book.title}\nRenter: ${rental.renterName}\nBase Fee: ₹${rentalFee.toFixed(2)}\nGST (18%): ₹${gstAmount.toFixed(2)}\nTotal Paid: ₹${totalAmount.toFixed(2)}\nReturn Due Date: ${dueDateStr}\nSelf Pickup Location: Madhuban kathaltali, Tarader Thikana, Agartala, Tripura 799003\nPayment Ref: ${rental.paymentId || "CONFIRMED"}`;
+
+  if (env.resendApiKey) {
+    try {
+      console.log(`[Email] Sending rental confirmation email to ${email} via Resend...`);
+      await sendEmailViaResend({ to: [email], subject, html: htmlContent, text: textContent });
+    } catch (err) {
+      console.error("[Email] Failed to send rental confirmation email via Resend:", err);
+    }
+  } else {
+    try {
+      await getTransport().sendMail({
+        from: env.smtp.from || "Lekhok Tripura <no-reply@lekhoktripura.in>",
+        to: email,
+        subject,
+        html: htmlContent,
+        text: textContent
+      });
+      console.log(`[Email] Rental confirmation email sent via SMTP fallback to ${email}`);
+    } catch (err) {
+      console.error("[Email] Failed to send rental confirmation email via SMTP:", err);
+    }
+  }
+}
+
+export async function sendRentalOverdueReminderEmail({ rental, book, daysOverdue, totalFine }) {
+  const email = rental.renterEmail;
+  if (!email) return { skipped: true };
+
+  const finePerDay = rental.finePerDay || book.finePerDay || 5;
+  const dueDateStr = new Date(rental.dueDate).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+
+  const subject = `⚠️ Overdue Book Return Reminder: ${book.title} (₹${finePerDay}/Day Late Fine Accumulating)`;
+  const htmlContent = `
+    <div style="font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#050505;color:#ffffff;padding:32px;border-radius:18px;max-width:680px;margin:0 auto;border:2px solid #ef4444">
+      <div style="text-align:center;padding-bottom:20px;border-bottom:2px solid #ef4444;margin-bottom:24px">
+        <p style="letter-spacing:0.25em;text-transform:uppercase;color:#ef4444;font-size:12px;font-weight:bold;margin:0 0 6px">LEKHOK TRIPURA RENTAL REMINDER</p>
+        <h1 style="font-size:24px;color:#ffffff;margin:0;font-weight:800">⚠️ Book Return Overdue</h1>
+        <p style="color:#fca5a5;font-size:13px;margin-top:6px;font-weight:bold">Return Due Date Passed (${dueDateStr})</p>
+      </div>
+
+      <p style="color:#e2e8f0;font-size:14px;line-height:1.6;margin-bottom:16px">
+        Hello <strong>${escapeHtml(rental.renterName || "Reader")}</strong>,
+      </p>
+      <p style="color:#cbd5e1;font-size:14px;line-height:1.6;margin-bottom:24px">
+        This is a friendly reminder that your rental period for <strong>"${escapeHtml(book.title)}"</strong> by ${escapeHtml(book.author)} has expired on <strong>${dueDateStr}</strong>.
+      </p>
+
+      <!-- OVERDUE & FINE BOX -->
+      <div style="background:#270b0b;padding:20px;border-radius:14px;border:1px solid #dc2626;margin-bottom:24px">
+        <h3 style="font-size:14px;color:#fca5a5;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 12px">Late Fine Accumulation Status</h3>
+        <table style="width:100%;font-size:13px;color:#fecdd3;border-collapse:collapse">
+          <tr><td style="padding:6px 0;color:#fda4af">Overdue Days:</td><td style="padding:6px 0;text-align:right;font-weight:bold;color:#ffffff">${daysOverdue} Day(s)</td></tr>
+          <tr><td style="padding:6px 0;color:#fda4af">Daily Late Fine Rate:</td><td style="padding:6px 0;text-align:right;font-weight:bold;color:#f87171">₹${finePerDay} / Day</td></tr>
+          <tr style="border-top:1px solid #7f1d1d"><td style="padding:10px 0 6px;color:#ffffff;font-weight:bold;font-size:14px">Total Accumulated Fine:</td><td style="padding:10px 0 6px;text-align:right;font-weight:800;color:#f87171;font-size:18px">₹${totalFine}</td></tr>
+        </table>
+        <p style="color:#fca5a5;font-size:12px;margin:12px 0 0;line-height:1.5;font-style:italic">
+          * A late fee of ₹${finePerDay} will continue to be added for every additional day until the book is returned.
+        </p>
+      </div>
+
+      <!-- RETURN LOCATION & INSTRUCTIONS -->
+      <div style="background:#1c1917;padding:18px;border-radius:14px;border:1px solid #f59e0b;margin-bottom:24px">
+        <span style="background:#451a03;color:#fbbf24;font-size:10px;font-weight:bold;padding:3px 8px;border-radius:12px;text-transform:uppercase;letter-spacing:0.1em;border:1px solid #d97706">
+          📍 RETURN / DROP-OFF LOCATION
+        </span>
+        <h3 style="font-size:15px;color:#ffffff;margin:10px 0 4px;font-weight:700">Tarader Thikana</h3>
+        <p style="color:#fef3c7;font-size:13px;margin:0;line-height:1.5">
+          Madhuban kathaltali, Tarader Thikana, Agartala, Tripura 799003
+        </p>
+      </div>
+
+      <div style="border-top:1px solid #1f2937;padding-top:20px;text-align:center;font-size:12px;color:#64748b">
+        <p>If you have already returned this book, please inform admin at support@lekhoktripura.in</p>
+        <p style="margin-top:4px">&copy; ${new Date().getFullYear()} Lekhok Tripura Publishers. Agartala, Tripura.</p>
+      </div>
+    </div>
+  `;
+
+  const textContent = `⚠️ OVERDUE BOOK RETURN REMINDER\n\nBook: ${book.title}\nRenter: ${rental.renterName}\nDue Date: ${dueDateStr}\nOverdue Days: ${daysOverdue} Days\nAccumulated Late Fine: ₹${totalFine} (₹${finePerDay}/day)\n\nPlease return the book immediately to Tarader Thikana, Madhuban kathaltali, Agartala, Tripura 799003 to avoid further late fine accumulation.`;
+
+  if (env.resendApiKey) {
+    try {
+      console.log(`[Email] Sending overdue reminder email to ${email} via Resend...`);
+      await sendEmailViaResend({ to: [email], subject, html: htmlContent, text: textContent });
+    } catch (err) {
+      console.error("[Email] Failed to send overdue reminder via Resend:", err);
+    }
+  } else {
+    try {
+      await getTransport().sendMail({
+        from: env.smtp.from || "Lekhok Tripura <no-reply@lekhoktripura.in>",
+        to: email,
+        subject,
+        html: htmlContent,
+        text: textContent
+      });
+      console.log(`[Email] Overdue reminder email sent via SMTP to ${email}`);
+    } catch (err) {
+      console.error("[Email] Failed to send overdue reminder via SMTP:", err);
+    }
+  }
+}
+
 

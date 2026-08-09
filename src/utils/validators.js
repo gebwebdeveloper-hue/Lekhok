@@ -36,6 +36,11 @@ export const bookCreateSchema = {
     comingSoon: Joi.alternatives().try(Joi.boolean(), Joi.string()),
     listenInYoutube: Joi.alternatives().try(Joi.boolean(), Joi.string()),
     youtubeLink: Joi.string().trim().max(500).allow(""),
+    isRentalAvailable: Joi.alternatives().try(Joi.boolean(), Joi.string()),
+    rentalPrice: Joi.alternatives().try(Joi.number().min(0), Joi.string().allow("")),
+    rentalDurationDays: Joi.alternatives().try(Joi.number().min(1), Joi.string().allow("")),
+    finePerDay: Joi.alternatives().try(Joi.number().min(0), Joi.string().allow("")),
+    rentalStatus: Joi.string().valid("available", "on_rent", "return_requested").allow(""),
     publishedAt: Joi.date()
   }).required()
 };
@@ -60,6 +65,11 @@ export const bookUpdateSchema = {
     comingSoon: Joi.alternatives().try(Joi.boolean(), Joi.string()),
     listenInYoutube: Joi.alternatives().try(Joi.boolean(), Joi.string()),
     youtubeLink: Joi.string().trim().max(500).allow(""),
+    isRentalAvailable: Joi.alternatives().try(Joi.boolean(), Joi.string()),
+    rentalPrice: Joi.alternatives().try(Joi.number().min(0), Joi.string().allow("")),
+    rentalDurationDays: Joi.alternatives().try(Joi.number().min(1), Joi.string().allow("")),
+    finePerDay: Joi.alternatives().try(Joi.number().min(0), Joi.string().allow("")),
+    rentalStatus: Joi.string().valid("available", "on_rent", "return_requested").allow(""),
     publishedAt: Joi.date()
   }).min(1)
 };

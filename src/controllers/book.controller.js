@@ -103,6 +103,10 @@ export const createBook = asyncHandler(async (req, res) => {
     comingSoon: body.comingSoon === "true" || body.comingSoon === true,
     listenInYoutube: body.listenInYoutube === "true" || body.listenInYoutube === true,
     youtubeLink: body.youtubeLink || "",
+    isRentalAvailable: body.isRentalAvailable === "true" || body.isRentalAvailable === true,
+    rentalPrice: body.rentalPrice ? Number(body.rentalPrice) : 50,
+    rentalDurationDays: body.rentalDurationDays ? Number(body.rentalDurationDays) : 15,
+    finePerDay: body.finePerDay ? Number(body.finePerDay) : 5,
     publishedAt: body.publishedAt ? new Date(body.publishedAt) : new Date(),
     createdBy: req.user._id
   });
@@ -120,11 +124,17 @@ export const updateBook = asyncHandler(async (req, res) => {
   if (!book) throw new ApiError(404, "Book not found.");
 
   const body = req.body;
-  const updates = { ...body };
+  const updates = {};
+
+  if (body.title !== undefined) updates.title = body.title;
   if (body.title && body.title !== book.title) updates.slug = body.slug || await uniqueSlug(body.title, book._id);
+  if (body.author !== undefined) updates.author = body.author;
+  if (body.description !== undefined) updates.description = body.description;
   if (body.price !== undefined) updates.price = Number(body.price);
   if (body.paperbackPrice !== undefined) updates.paperbackPrice = body.paperbackPrice ? Number(body.paperbackPrice) : 0;
   if (body.hardcoverPrice !== undefined) updates.hardcoverPrice = body.hardcoverPrice ? Number(body.hardcoverPrice) : 0;
+  if (body.category !== undefined) updates.category = body.category;
+  if (body.language !== undefined) updates.language = body.language;
   if (body.pages !== undefined) updates.pages = Number(body.pages);
   if (body.tags !== undefined) updates.tags = parseTags(body.tags);
   if (body.featured !== undefined) updates.featured = body.featured === "true" || body.featured === true;
@@ -133,6 +143,10 @@ export const updateBook = asyncHandler(async (req, res) => {
   if (body.comingSoon !== undefined) updates.comingSoon = body.comingSoon === "true" || body.comingSoon === true;
   if (body.listenInYoutube !== undefined) updates.listenInYoutube = body.listenInYoutube === "true" || body.listenInYoutube === true;
   if (body.youtubeLink !== undefined) updates.youtubeLink = body.youtubeLink;
+  if (body.isRentalAvailable !== undefined) updates.isRentalAvailable = body.isRentalAvailable === "true" || body.isRentalAvailable === true;
+  if (body.rentalPrice !== undefined) updates.rentalPrice = Number(body.rentalPrice);
+  if (body.rentalDurationDays !== undefined) updates.rentalDurationDays = Number(body.rentalDurationDays);
+  if (body.finePerDay !== undefined) updates.finePerDay = Number(body.finePerDay);
 
   const cover = await persistUploadedFile(getFile(req.files, "cover"), "covers", "image");
   const previewPdf = await persistUploadedFile(getFile(req.files, "previewPdf"), "previews", "raw");

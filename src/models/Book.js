@@ -35,9 +35,16 @@ const bookSchema = new mongoose.Schema(
     comingSoon: { type: Boolean, default: false, index: true },
     listenInYoutube: { type: Boolean, default: false },
     youtubeLink: { type: String, trim: true, default: "" },
-    rating: { type: Number, min: 0, max: 5, default: 0 },
     publishedAt: Date,
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    // Book Rental System Fields
+    isRentalAvailable: { type: Boolean, default: false, index: true },
+    rentalPrice: { type: Number, default: 50, min: 0 },
+    rentalDurationDays: { type: Number, default: 15, min: 1 },
+    finePerDay: { type: Number, default: 5, min: 0 },
+    rentalStatus: { type: String, enum: ["available", "on_rent", "return_requested"], default: "available", index: true },
+    currentRentalId: { type: mongoose.Schema.Types.ObjectId, ref: "BookRental", default: null },
+    expectedReturnDate: { type: Date, default: null }
   },
   { timestamps: true }
 );

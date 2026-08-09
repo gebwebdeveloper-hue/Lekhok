@@ -129,7 +129,7 @@ export const verifyLibraryCardPayment = asyncHandler(async (req, res) => {
 
   const issuedAt = new Date();
   const validUntil = new Date();
-  validUntil.setFullYear(validUntil.getFullYear() + 1); // 1 year validity
+  validUntil.setFullYear(validUntil.getFullYear() + 99); // Lifetime validity
 
   const memberName = name || req.user.name || "Library Member";
   const memberPhone = phone || req.user.phone || "";
@@ -248,6 +248,31 @@ export const updateLibraryCardStatusAdmin = asyncHandler(async (req, res) => {
 // 6. Download library card PDF — generated in-memory and streamed directly to client
 export const downloadLibraryCardPdf = asyncHandler(async (req, res) => {
   const { cardId } = req.params;
+
+  if (cardId && (cardId.toLowerCase() === "demo" || cardId.toLowerCase() === "sample")) {
+    const pdfBuffer = await buildLibraryCardPdfBuffer({
+      cardId: "LTC-DEMO01",
+      userName: "Sample Reader (Demo)",
+      userEmail: "lekhok.tripura@gmail.com",
+      userPhone: "9876543210",
+      dob: "2000-01-01",
+      fatherName: "Sample Father",
+      state: "Tripura",
+      district: "West Tripura",
+      villageTown: "Agartala",
+      postOffice: "Agartala HO",
+      pinCode: "799001",
+      policeStation: "Agartala PS",
+      emergencyContact: "9876543210",
+      issuedAt: new Date(),
+      validUntil: new Date(Date.now() + 99 * 365 * 24 * 60 * 60 * 1000),
+    });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="Demo_Library_Card.pdf"`);
+    res.setHeader("Content-Length", pdfBuffer.length);
+    return res.send(pdfBuffer);
+  }
 
   const card = await LibraryCard.findOne({ cardId });
   if (!card) throw new ApiError(404, "Library card not found.");

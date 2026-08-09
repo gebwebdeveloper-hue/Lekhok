@@ -7,7 +7,6 @@ const clubMemberSchema = new mongoose.Schema(
       unique: true,
       sparse: true,
       trim: true,
-      default: "",
     },
     fullName: {
       type: String,

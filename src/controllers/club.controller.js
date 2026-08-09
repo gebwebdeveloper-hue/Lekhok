@@ -319,9 +319,18 @@ export const addAdminMember = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "Name, Mail ID, and Phone Number are required." });
     }
 
+    const cleanEmail = email.trim().toLowerCase();
+    const existingMember = await ClubMember.findOne({ email: cleanEmail });
+    if (existingMember) {
+      return res.status(400).json({ success: false, message: "A club member with this Email ID already exists." });
+    }
+
+    const newMemberId = await generateMemberId();
+
     const newMember = await ClubMember.create({
+      memberId: newMemberId,
       fullName: fullName.trim(),
-      email: email.trim().toLowerCase(),
+      email: cleanEmail,
       phone: phone.trim(),
       whatsapp: (whatsapp || phone).trim(),
       role: (role || "Member").trim(),

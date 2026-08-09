@@ -74,6 +74,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(morgan(env.nodeEnv === "production" ? "combined" : "dev"));
 app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 300, standardHeaders: true, legacyHeaders: false }));
+
 app.use("/uploads", express.static(path.resolve(__dirname, "../uploads"), { fallthrough: false, maxAge: "1h" }));
 
 app.get("/api/health", (_req, res) => {

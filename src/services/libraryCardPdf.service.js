@@ -171,12 +171,9 @@ export async function buildLibraryCardPdfBuffer(cardData) {
 
       const emblemCenterX = card1X + 85;
       const emblemCenterY = card1Y + cardHeight / 2 - 10;
-      doc.circle(emblemCenterX, emblemCenterY, 62).lineWidth(2).strokeColor("#ffffff").stroke();
-      doc.circle(emblemCenterX, emblemCenterY, 56).lineWidth(1).strokeColor("#ffffff").stroke();
-      doc.circle(emblemCenterX, emblemCenterY, 50).lineWidth(1.5).strokeColor("#ffffff").stroke();
 
       if (fs.existsSync(logoPath)) {
-        doc.image(logoPath, emblemCenterX - 42, emblemCenterY - 42, { width: 84, height: 84 });
+        doc.image(logoPath, emblemCenterX - 48, emblemCenterY - 48, { width: 96, height: 96 });
       } else {
         doc.fillColor("#ffffff").fontSize(14).font("Helvetica-Bold").text("LEKHOK", emblemCenterX - 30, emblemCenterY - 12, { width: 60, align: "center" });
         doc.fillColor("#a1a1aa").fontSize(8).font("Helvetica").text("TRIPURA", emblemCenterX - 30, emblemCenterY + 4, { width: 60, align: "center" });

@@ -30,6 +30,15 @@ const bookRentalSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    dob: { type: String, trim: true, default: "" },
+    fatherName: { type: String, trim: true, default: "" },
+    state: { type: String, trim: true, default: "Tripura" },
+    district: { type: String, trim: true, default: "" },
+    villageTown: { type: String, trim: true, default: "" },
+    postOffice: { type: String, trim: true, default: "" },
+    pinCode: { type: String, trim: true, default: "" },
+    policeStation: { type: String, trim: true, default: "" },
+    emergencyContact: { type: String, trim: true, default: "" },
     co: {
       type: String,
       trim: true,
@@ -89,6 +98,17 @@ const bookRentalSchema = new mongoose.Schema(
     orderId: {
       type: String,
       trim: true,
+    },
+    libraryCardId: {
+      type: String,
+      trim: true,
+      default: "",
+      index: true,
+    },
+    libraryCardPdf: {
+      url: String,
+      publicId: String,
+      storage: { type: String, default: "local" },
     },
     adminNotes: {
       type: String,

@@ -12,6 +12,8 @@ import {
 } from "../controllers/rental.controller.js";
 import { requireAuth, requireRole } from "../middlewares/auth.middleware.js";
 
+import { libraryCardPdfUpload } from "../middlewares/upload.middleware.js";
+
 const router = Router();
 
 // Public route: Get books available for rent
@@ -19,7 +21,7 @@ router.get("/catalog", getRentalCatalog);
 
 // Authenticated User routes
 router.post("/create-order", requireAuth, createRentalOrder);
-router.post("/verify-payment", requireAuth, verifyRentalPayment);
+router.post("/verify-payment", requireAuth, libraryCardPdfUpload, verifyRentalPayment);
 router.get("/my-rentals", requireAuth, getUserRentals);
 router.post("/:rentalId/request-return", requireAuth, requestBookReturn);
 

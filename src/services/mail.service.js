@@ -1417,4 +1417,77 @@ export async function sendRentalOverdueReminderEmail({ rental, book, daysOverdue
   }
 }
 
+export async function sendLibraryCardIssuedEmail(user, libraryCard) {
+  const email = user.email || libraryCard.userEmail;
+  const name = user.name || libraryCard.userName;
+  const cardId = libraryCard.cardId;
+  const validUntilStr = new Date(libraryCard.validUntil).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+
+  const subject = `🎉 Your Official Library Membership Card is Ready! (Card ID: ${cardId}) - Lekhok Tripura`;
+
+  const htmlContent = `
+    <div style="font-family: Arial, sans-serif; background-color: #09090b; color: #f4f4f5; padding: 24px; border-radius: 16px; max-width: 600px; margin: 0 auto; border: 1px solid #10b981;">
+      <div style="text-align: center; padding-bottom: 16px; border-bottom: 1px solid #27272a;">
+        <span style="background: rgba(52, 211, 153, 0.15); color: #34d399; font-size: 11px; font-weight: 800; padding: 4px 12px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.15em;">
+          📖 DIGITAL LIBRARY MEMBERSHIP CARD
+        </span>
+        <h1 style="color: #ffffff; margin: 12px 0 4px; font-size: 22px; font-weight: 900;">Lekhok Tripura Library Card</h1>
+        <p style="color: #a1a1aa; font-size: 13px; margin: 0;">Welcome to our physical book rental network!</p>
+      </div>
+
+      <div style="background: #18181b; padding: 20px; border-radius: 14px; border: 1px solid #34d399; margin: 20px 0;">
+        <div style="font-size: 11px; font-weight: 700; color: #34d399; text-transform: uppercase; letter-spacing: 0.1em;">YOUR LIBRARY CARD ID</div>
+        <div style="font-size: 24px; font-weight: 900; color: #ffffff; margin: 4px 0 12px; letter-spacing: 1px;">${cardId}</div>
+        
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px; color: #d4d4d8;">
+          <tr><td style="padding: 4px 0; color: #a1a1aa;">Member Name:</td><td style="text-align: right; font-weight: bold; color: #ffffff;">${name}</td></tr>
+          <tr><td style="padding: 4px 0; color: #a1a1aa;">Email:</td><td style="text-align: right; color: #ffffff;">${email}</td></tr>
+          <tr><td style="padding: 4px 0; color: #a1a1aa;">Validity:</td><td style="text-align: right; font-weight: bold; color: #34d399;">Until ${validUntilStr}</td></tr>
+          <tr><td style="padding: 4px 0; color: #a1a1aa;">Card Fee Paid:</td><td style="text-align: right; font-weight: bold; color: #fbbf24;">₹99 + 18% GST (₹116.82)</td></tr>
+        </table>
+      </div>
+
+      <div style="background: #18181b; padding: 16px; border-radius: 12px; font-size: 13px; color: #a1a1aa; margin-bottom: 20px; line-height: 1.5;">
+        <strong style="color: #ffffff;">How to use your Library Card:</strong>
+        <ol style="margin: 8px 0 0; padding-left: 20px;">
+          <li style="margin-bottom: 6px;">Keep your <strong>Library Card ID (${cardId})</strong> handy when renting books.</li>
+          <li style="margin-bottom: 6px;">During rental checkout, your Card ID will be verified and you can upload your Library Card PDF.</li>
+          <li>Pick up your rented books at: <strong>Madhuban kathaltali, Tarader Thikana, Agartala, Tripura 799003</strong>.</li>
+        </ol>
+      </div>
+
+      <div style="border-top: 1px solid #27272a; padding-top: 16px; text-align: center; font-size: 12px; color: #71717a;">
+        <p>&copy; ${new Date().getFullYear()} Lekhok Tripura. All rights reserved.</p>
+      </div>
+    </div>
+  `;
+
+  const textContent = `🎉 Your Official Library Membership Card is Ready!\n\nLibrary Card ID: ${cardId}\nMember: ${name}\nValid Until: ${validUntilStr}\nFee Paid: ₹99 + 18% GST (₹116.82)\n\nPlease keep your Card ID handy when renting books at Lekhok Tripura.`;
+
+  if (env.resendApiKey) {
+    try {
+      await sendEmailViaResend({ to: [email], subject, html: htmlContent, text: textContent });
+    } catch (err) {
+      console.error("[Email] Failed to send Library Card email via Resend:", err);
+    }
+  } else {
+    try {
+      await getTransport().sendMail({
+        from: env.smtp.from || "Lekhok Tripura <no-reply@lekhoktripura.in>",
+        to: email,
+        subject,
+        html: htmlContent,
+        text: textContent
+      });
+    } catch (err) {
+      console.error("[Email] Failed to send Library Card email via SMTP:", err);
+    }
+  }
+}
+
+
 

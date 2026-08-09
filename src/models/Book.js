@@ -39,6 +39,7 @@ const bookSchema = new mongoose.Schema(
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     // Book Rental System Fields
     isRentalAvailable: { type: Boolean, default: false, index: true },
+    isRentalOnly: { type: Boolean, default: false, index: true },
     rentalPrice: { type: Number, default: 50, min: 0 },
     rentalDurationDays: { type: Number, default: 15, min: 1 },
     finePerDay: { type: Number, default: 5, min: 0 },

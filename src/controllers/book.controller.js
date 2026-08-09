@@ -104,6 +104,7 @@ export const createBook = asyncHandler(async (req, res) => {
     listenInYoutube: body.listenInYoutube === "true" || body.listenInYoutube === true,
     youtubeLink: body.youtubeLink || "",
     isRentalAvailable: body.isRentalAvailable === "true" || body.isRentalAvailable === true,
+    isRentalOnly: body.isRentalOnly === "true" || body.isRentalOnly === true,
     rentalPrice: body.rentalPrice ? Number(body.rentalPrice) : 50,
     rentalDurationDays: body.rentalDurationDays ? Number(body.rentalDurationDays) : 15,
     finePerDay: body.finePerDay ? Number(body.finePerDay) : 5,

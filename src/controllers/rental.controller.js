@@ -2,6 +2,7 @@ import crypto from "crypto";
 import Razorpay from "razorpay";
 import { Book } from "../models/Book.js";
 import { BookRental } from "../models/BookRental.js";
+import { LibraryCard } from "../models/LibraryCard.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../middlewares/error.middleware.js";
 import { env } from "../config/env.js";
@@ -103,6 +104,15 @@ export const verifyRentalPayment = asyncHandler(async (req, res) => {
     renterName,
     renterPhone,
     renterEmail,
+    dob,
+    fatherName,
+    state,
+    district,
+    villageTown,
+    postOffice,
+    pinCode,
+    policeStation,
+    emergencyContact,
     co,
     fullAddress,
     deliveryAddress,
@@ -141,6 +151,20 @@ export const verifyRentalPayment = asyncHandler(async (req, res) => {
   const gstAmount = Number((rentalFee * 0.18).toFixed(2));
   const totalAmount = Number((rentalFee + gstAmount).toFixed(2));
 
+  const libraryCardId = req.body.libraryCardId || "";
+  if (libraryCardId) {
+    const cardDoc = await LibraryCard.findOne({ cardId: libraryCardId });
+    if (cardDoc && cardDoc.status === "suspended") {
+      throw new ApiError(403, "Access Revoked: Your Library Card has been suspended by the administrator.");
+    }
+  }
+  let libraryCardPdfAsset = null;
+  if (req.file) {
+    libraryCardPdfAsset = await persistUploadedFile(req.file, "pdfs", "raw");
+  } else if (req.body.libraryCardPdfUrl) {
+    libraryCardPdfAsset = { url: req.body.libraryCardPdfUrl, storage: "local" };
+  }
+
   // Create BookRental Document
   const rental = await BookRental.create({
     bookId: book._id,
@@ -148,6 +172,15 @@ export const verifyRentalPayment = asyncHandler(async (req, res) => {
     renterName: renterName || req.user.name || "Reader",
     renterEmail: renterEmail || req.user.email,
     renterPhone: renterPhone || req.user.phone || "",
+    dob: dob || "",
+    fatherName: fatherName || "",
+    state: state || "Tripura",
+    district: district || "",
+    villageTown: villageTown || "",
+    postOffice: postOffice || "",
+    pinCode: pinCode || "",
+    policeStation: policeStation || "",
+    emergencyContact: emergencyContact || "",
     co: co || "",
     deliveryAddress: fullAddress || deliveryAddress || "Self Pickup at Madhuban kathaltali, Tarader Thikana, Agartala, Tripura 799003",
     pickupAddress: "Madhuban kathaltali, Tarader Thikana, Agartala, Tripura 799003",
@@ -160,6 +193,8 @@ export const verifyRentalPayment = asyncHandler(async (req, res) => {
     status: "active",
     paymentId: req.body.transactionNumber || razorpay_payment_id || `PAY_DIRECT_${Date.now()}`,
     orderId: razorpay_order_id || `ORD_${Date.now()}`,
+    libraryCardId,
+    libraryCardPdf: libraryCardPdfAsset,
   });
 
   // Update Book status

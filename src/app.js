@@ -22,7 +22,7 @@ import enquiryRoutes from "./routes/enquiry.routes.js";
 import categoryRoutes from "./routes/category.routes.js";
 import newsRoutes from "./routes/news.routes.js";
 import rentalRoutes from "./routes/rental.routes.js";
-
+import libraryCardRoutes from "./routes/libraryCard.routes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -94,6 +94,7 @@ app.use("/api/newsletter", newsletterRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/news", newsRoutes);
 app.use("/api/rentals", rentalRoutes);
+app.use("/api/library-card", libraryCardRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

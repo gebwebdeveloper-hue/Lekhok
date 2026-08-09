@@ -164,9 +164,11 @@ export const checkMembershipStatus = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "Email query param required" });
     }
 
+    const cleanEmail = email.trim();
+
     const member = await ClubMember.findOne({
-      email: email.trim().toLowerCase(),
-      paymentStatus: "paid",
+      email: { $regex: new RegExp(`^${cleanEmail.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
+      status: "active",
     });
 
     if (member) {
@@ -174,10 +176,11 @@ export const checkMembershipStatus = async (req, res, next) => {
         success: true,
         isMember: true,
         member: {
+          memberId: member.memberId || "LTCLUB-MEMBER",
           fullName: member.fullName,
           email: member.email,
           phone: member.phone,
-          role: member.role,
+          role: member.role || "Lifetime Club Member",
           paymentId: member.paymentId,
           createdAt: member.createdAt,
         },

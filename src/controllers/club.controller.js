@@ -8,10 +8,10 @@ import { sendClubMemberConfirmationEmail, sendRefundConfirmationEmail } from "..
 import { buildClubCardPdfBuffer } from "../services/libraryCardPdf.service.js";
 import { env } from "../config/env.js";
 
-// Club Membership Price Constants (Test Mode: ₹1)
-const CLUB_BASE_FEE = 1;
-const GST_RATE = 0;
-export const CLUB_TOTAL_FEE = 1; // ₹1 for testing
+// Club Membership Price Constants: ₹999 + 18% GST = ₹1178.82
+const CLUB_BASE_FEE = 999;
+const GST_RATE = 0.18;
+export const CLUB_TOTAL_FEE = Math.round(CLUB_BASE_FEE * (1 + GST_RATE) * 100) / 100; // 1178.82
 
 // Public: Stream User's Real Official Club Membership Card PDF
 export const downloadClubCardPdf = async (req, res, next) => {

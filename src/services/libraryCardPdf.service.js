@@ -64,17 +64,51 @@ function drawBarcodeGraphic(doc, x, y, width, height, codeText) {
   doc.fillColor("#111111").fontSize(7.5).font("Helvetica-Bold").text(spacedText, x, y + height - 12, { align: "center", width });
 }
 
+/**
+ * Upload a PDF Buffer directly to Cloudinary.
+ * Returns: { url, publicId, fileName, storage }
+ */
+export async function uploadPdfBufferToCloudinary(pdfBuffer, cardId) {
+  const fileName = `library-card-${cardId}.pdf`;
+  const result = await new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: "lekhak/library-cards",
+        public_id: `library-card-${cardId}`,
+        resource_type: "raw",
+        type: "upload",      // explicitly public — prevents 401 on some Cloudinary accounts
+        format: "pdf",
+        overwrite: true,
+      },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result);
+      }
+    );
+    uploadStream.end(pdfBuffer);
+  });
+
+  return {
+    url: result.secure_url,
+    fileName,
+    storage: "cloudinary",
+    publicId: result.public_id,
+  };
+}
+
 /** Generate the PDF document, collect it into a Buffer, then either:
- *  1. Upload to Cloudinary (when CLOUDINARY_CLOUD_NAME is configured), or
- *  2. Save to local disk as fallback.
+ *  1. Upload to Cloudinary (when CLOUDINARY_CLOUD_NAME is configured) — throws on failure,
+ *  2. Save to local disk only when Cloudinary is NOT configured.
  *
  *  Returns: { url, filePath (local only), fileName, storage }
  */
-export async function generateLibraryCardPdf(cardData) {
-  const fileName = `library-card-${cardData.cardId}.pdf`;
-
-  // Collect PDF bytes into a Buffer via PassThrough stream
-  const pdfBuffer = await new Promise((resolve, reject) => {
+/**
+ * Build the library-card PDF in-memory and return its Buffer.
+ * This can be used to stream the PDF directly to the client without
+ * going through Cloudinary (useful when Cloudinary has restricted delivery).
+ */
+export async function buildLibraryCardPdfBuffer(cardData) {
+  return new Promise((resolve, reject) => {
     try {
       const doc = new PDFDocument({ size: [560, 590], margin: 0 });
       const pass = new PassThrough();
@@ -205,37 +239,23 @@ export async function generateLibraryCardPdf(cardData) {
       reject(err);
     }
   });
+}
+
+export async function generateLibraryCardPdf(cardData) {
+  const fileName = `library-card-${cardData.cardId}.pdf`;
+
+  // Build PDF in-memory
+  const pdfBuffer = await buildLibraryCardPdfBuffer(cardData);
 
   // ── Upload to Cloudinary if configured, otherwise save locally ──
   const useCloudinary = env.cloudinary?.cloudName && env.cloudinary?.apiKey && env.cloudinary?.apiSecret;
 
   if (useCloudinary) {
-    const result = await new Promise((resolve, reject) => {
-      const uploadStream = cloudinary.uploader.upload_stream(
-        {
-          folder: "lekhak/library-cards",
-          public_id: `library-card-${cardData.cardId}`,
-          resource_type: "raw",
-          format: "pdf",
-          overwrite: true,
-        },
-        (error, result) => {
-          if (error) return reject(error);
-          resolve(result);
-        }
-      );
-      uploadStream.end(pdfBuffer);
-    });
-
-    return {
-      url: result.secure_url,
-      fileName,
-      storage: "cloudinary",
-      publicId: result.public_id,
-    };
+    // Throws on failure — never silently fall back to local when Cloudinary is configured.
+    return await uploadPdfBufferToCloudinary(pdfBuffer, cardData.cardId);
   }
 
-  // Fallback: write to local disk
+  // Fallback: write to local disk (only when Cloudinary is NOT configured)
   const filePath = path.join(uploadsDir, fileName);
   await fs.promises.writeFile(filePath, pdfBuffer);
   return {
@@ -245,3 +265,4 @@ export async function generateLibraryCardPdf(cardData) {
     storage: "local",
   };
 }
+

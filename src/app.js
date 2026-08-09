@@ -23,6 +23,7 @@ import categoryRoutes from "./routes/category.routes.js";
 import newsRoutes from "./routes/news.routes.js";
 import rentalRoutes from "./routes/rental.routes.js";
 import libraryCardRoutes from "./routes/libraryCard.routes.js";
+import { LibraryCard } from "./models/LibraryCard.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -74,6 +75,21 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(morgan(env.nodeEnv === "production" ? "combined" : "dev"));
 app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 300, standardHeaders: true, legacyHeaders: false }));
+
+// Redirect old local library-card PDF paths to Cloudinary URLs
+app.get("/uploads/library-cards/:filename", async (req, res, next) => {
+  try {
+    const filename = req.params.filename; // e.g. library-card-LTC-211655.pdf
+    const match = filename.match(/^library-card-(LTC-[\w]+)\.pdf$/);
+    if (!match) return next();
+    const cardId = match[1];
+    const card = await LibraryCard.findOne({ cardId }).select("pdfUrl").lean();
+    if (card && card.pdfUrl && /^https?:\/\//.test(card.pdfUrl)) {
+      return res.redirect(301, card.pdfUrl);
+    }
+  } catch (_) { /* fall through to static */ }
+  next();
+});
 
 app.use("/uploads", express.static(path.resolve(__dirname, "../uploads"), { fallthrough: false, maxAge: "1h" }));
 

@@ -4,7 +4,7 @@ import { LibraryCard } from "../models/LibraryCard.js";
 import { env } from "../config/env.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../middlewares/error.middleware.js";
-import { generateLibraryCardPdf } from "../services/libraryCardPdf.service.js";
+import { generateLibraryCardPdf, buildLibraryCardPdfBuffer } from "../services/libraryCardPdf.service.js";
 import { sendLibraryCardIssuedEmail } from "../services/mail.service.js";
 
 // Helper to generate Card ID (e.g., LTC-783921)
@@ -43,10 +43,10 @@ export const getMyLibraryCard = asyncHandler(async (req, res) => {
 
 // 2. Create Razorpay order for Library Card purchase (₹99 + 18% GST = ₹116.82)
 export const createLibraryCardOrder = asyncHandler(async (req, res) => {
-  const cardFee = 99;
-  const gstAmount = Number((cardFee * 0.18).toFixed(2)); // 17.82
-  const totalAmount = Number((cardFee + gstAmount).toFixed(2)); // 116.82
-  const amountInPaise = Math.round(totalAmount * 100); // 11682
+  const cardFee = 1;
+  const gstAmount = 0;
+  const totalAmount = 1;
+  const amountInPaise = 100; // 100 paise = ₹1
 
   const keyId = env.razorpayKeyId;
   const keySecret = env.razorpayKeySecret;
@@ -172,9 +172,9 @@ export const verifyLibraryCardPayment = asyncHandler(async (req, res) => {
     emergencyContact: emergencyContact || "",
     co: co || "",
     fullAddress: fullAddress || "",
-    cardFee: 99,
-    gstAmount: 17.82,
-    totalAmount: 116.82,
+    cardFee: 1,
+    gstAmount: 0,
+    totalAmount: 1,
     paymentId: razorpay_payment_id || `PAY_CARD_${Date.now()}`,
     orderId: razorpay_order_id || `ORD_CARD_${Date.now()}`,
     pdfUrl: pdfResult.url,
@@ -243,4 +243,41 @@ export const updateLibraryCardStatusAdmin = asyncHandler(async (req, res) => {
     message: `Library Card ${card.cardId} access has been updated to '${status}'.`,
     libraryCard: card,
   });
+});
+
+// 6. Download library card PDF — generated in-memory and streamed directly to client
+export const downloadLibraryCardPdf = asyncHandler(async (req, res) => {
+  const { cardId } = req.params;
+
+  const card = await LibraryCard.findOne({ cardId });
+  if (!card) throw new ApiError(404, "Library card not found.");
+
+  // Only the card owner or an admin can download
+  const isOwner = card.userId.toString() === req.user._id.toString();
+  const isAdmin = req.user.role === "admin";
+  if (!isOwner && !isAdmin) throw new ApiError(403, "Access denied.");
+
+  // Generate PDF buffer in-memory (no Cloudinary fetch — bypasses delivery restrictions)
+  const pdfBuffer = await buildLibraryCardPdfBuffer({
+    cardId:           card.cardId,
+    userName:         card.userName,
+    userEmail:        card.userEmail,
+    userPhone:        card.userPhone,
+    dob:              card.dob || "",
+    fatherName:       card.fatherName || "",
+    state:            card.state || "Tripura",
+    district:         card.district || "",
+    villageTown:      card.villageTown || "",
+    postOffice:       card.postOffice || "",
+    pinCode:          card.pinCode || "",
+    policeStation:    card.policeStation || "",
+    emergencyContact: card.emergencyContact || "",
+    issuedAt:         card.issuedAt,
+    validUntil:       card.validUntil,
+  });
+
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `inline; filename="library-card-${cardId}.pdf"`);
+  res.setHeader("Content-Length", pdfBuffer.length);
+  res.send(pdfBuffer);
 });

@@ -202,7 +202,7 @@ export async function buildLibraryCardPdfBuffer(cardData) {
       doc.roundedRect(card1X, card1Y, cardWidth, cardHeight, 16).clip();
       doc.rect(card1X, card1Y + cardHeight - 32, cardWidth, 32).fill("#111111");
       doc.fillColor("#ffffff").fontSize(8).font("Helvetica").text(
-        "www.lekhoktripura.in     |     info@lekhoktripura.in     |     Agartala, Tripura",
+        "www.lekhoktripura.in     |     lekhok.tripura@gmail.com     |     Agartala, Tripura",
         card1X, card1Y + cardHeight - 20, { align: "center", width: cardWidth }
       );
       doc.restore();

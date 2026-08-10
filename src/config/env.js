@@ -50,5 +50,10 @@ export const env = {
     apiSecret: process.env.CLOUDINARY_API_SECRET
   },
   razorpayKeyId: process.env.RAZORPAY_KEY_ID || "",
-  razorpayKeySecret: process.env.RAZORPAY_KEY_SECRET || ""
+  razorpayKeySecret: process.env.RAZORPAY_KEY_SECRET || "",
+  shiprocket: {
+    email: process.env.SHIPROCKET_EMAIL || "",
+    password: process.env.SHIPROCKET_PASSWORD || "",
+    pickupLocation: process.env.SHIPROCKET_PICKUP_LOCATION || "Primary"
+  }
 };

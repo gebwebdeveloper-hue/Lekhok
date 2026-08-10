@@ -8,6 +8,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../middlewares/error.middleware.js";
 import { persistUploadedFile } from "../services/storage.service.js";
 import { sendPhysicalOrderEmail, sendPurchaseConfirmationEmail, sendRefundConfirmationEmail } from "../services/mail.service.js";
+import { createShiprocketOrder, checkPincodeServiceability } from "../services/shiprocket.service.js";
 import { env } from "../config/env.js";
 
 // 18% GST applied on every book purchase
@@ -16,7 +17,7 @@ const applyGST = (basePrice) => Math.round(Number(basePrice) * (1 + GST_RATE) * 
 
 // Delivery charge for paperback/hardcover based on state
 const DELIVERY_CHARGES = {
-  tripura: 80,
+  tripura: 0,
   "west bengal": 100,
   "westbengal": 100,
 };
@@ -125,7 +126,7 @@ export const adminPurchases = asyncHandler(async (req, res) => {
 });
 
 export const approvePurchase = asyncHandler(async (req, res) => {
-  const purchase = await PurchaseRequest.findById(req.params.id);
+  const purchase = await PurchaseRequest.findById(req.params.id).populate("bookId").populate("userId");
   if (!purchase) throw new ApiError(404, "Purchase request not found.");
 
   purchase.status = "approved";
@@ -134,6 +135,24 @@ export const approvePurchase = asyncHandler(async (req, res) => {
   purchase.rejectedBy = undefined;
   purchase.rejectedAt = undefined;
   purchase.adminNote = req.body.adminNote;
+
+  if (purchase.format !== "ebook") {
+    purchase.shipmentStatus = "processing";
+    try {
+      const shiprocketRes = await createShiprocketOrder({
+        purchase,
+        book: purchase.bookId || {},
+        user: purchase.userId || {}
+      });
+      if (shiprocketRes) {
+        purchase.shiprocketOrderId = shiprocketRes.orderId;
+        purchase.shiprocketShipmentId = shiprocketRes.shipmentId;
+      }
+    } catch (err) {
+      console.error("[Shiprocket Error]: Failed to create order in Shiprocket:", err);
+    }
+  }
+
   await purchase.save();
 
   res.json({ success: true, purchase });
@@ -747,6 +766,21 @@ export const verifyRazorpayPayment = asyncHandler(async (req, res) => {
       } catch (err) {
         console.error("[Email Error]: Failed to notify admin for physical order:", err);
       }
+
+      // Trigger automatic Shiprocket order creation
+      try {
+        const shiprocketRes = await createShiprocketOrder({
+          purchase,
+          book: purchase.bookId || {},
+          user: req.user
+        });
+        if (shiprocketRes) {
+          purchase.shiprocketOrderId = shiprocketRes.orderId;
+          purchase.shiprocketShipmentId = shiprocketRes.shipmentId;
+        }
+      } catch (err) {
+        console.error("[Shiprocket Error]: Failed to create order in Shiprocket:", err);
+      }
     }
 
     await purchase.save();
@@ -896,6 +930,63 @@ export const processRefund = asyncHandler(async (req, res) => {
     refundId: razorpayRefund?.id
   });
 });
+
+export const checkDeliveryPincode = asyncHandler(async (req, res) => {
+  const { pincode } = req.params;
+  if (!pincode || pincode.length !== 6) {
+    throw new ApiError(400, "Valid 6-digit Pincode is required.");
+  }
+
+  const result = await checkPincodeServiceability(pincode);
+  if (!result || !result.data) {
+    return res.json({
+      success: true,
+      serviceable: true,
+      message: "Delivery available via Shiprocket / Speed Post."
+    });
+  }
+
+  const serviceable = Boolean(
+    result.data.courier_name ||
+    (result.data.available_courier_companies && result.data.available_courier_companies.length > 0)
+  );
+
+  res.json({
+    success: true,
+    serviceable,
+    courierData: result.data
+  });
+});
+
+export const syncPurchaseToShiprocket = asyncHandler(async (req, res) => {
+  const purchase = await PurchaseRequest.findById(req.params.id).populate("bookId").populate("userId");
+  if (!purchase) throw new ApiError(404, "Purchase request not found.");
+  if (purchase.format === "ebook") throw new ApiError(400, "E-books do not require physical shipping.");
+
+  const shiprocketRes = await createShiprocketOrder({
+    purchase,
+    book: purchase.bookId || {},
+    user: purchase.userId || {}
+  });
+
+  if (!shiprocketRes) {
+    throw new ApiError(500, "Failed to create order in Shiprocket. Please verify API User credentials and pickup location.");
+  }
+
+  purchase.shiprocketOrderId = shiprocketRes.orderId;
+  purchase.shiprocketShipmentId = shiprocketRes.shipmentId;
+  purchase.shipmentStatus = "processing";
+  await purchase.save();
+
+  res.json({
+    success: true,
+    message: "Order successfully synced to Shiprocket!",
+    purchase,
+    shiprocket: shiprocketRes
+  });
+});
+
+
 
 
 

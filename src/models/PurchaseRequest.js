@@ -39,6 +39,9 @@ const purchaseRequestSchema = new mongoose.Schema(
     rejectedAt: Date,
 
     // Shipment & Physical Order Tracking
+    shiprocketOrderId: { type: String, trim: true, index: true },
+    shiprocketShipmentId: { type: String, trim: true, index: true },
+    shiprocketAwbCode: { type: String, trim: true, index: true },
     shipmentStatus: {
       type: String,
       enum: ["processing", "packed", "shipped", "out_for_delivery", "delivered"],

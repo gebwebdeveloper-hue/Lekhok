@@ -6,6 +6,7 @@ import {
   getLiveOrderStatus,
   getAdminOrders,
   updateOrderStatus,
+  downloadOrderInvoicePdf,
 } from "../controllers/order.controller.js";
 import { requireAuth, requireRole } from "../../middlewares/auth.middleware.js";
 
@@ -16,6 +17,7 @@ router.post("/create-razorpay-order", requireAuth, createRazorpayOrder);
 router.post("/verify-payment", requireAuth, verifyPayment);
 router.get("/my-orders", requireAuth, getMyOrders);
 router.get("/live-status/:id", requireAuth, getLiveOrderStatus);
+router.get("/:id/invoice-pdf", downloadOrderInvoicePdf);
 
 // ── Admin Endpoints (Require Admin Role) ──────────────────────────────────────
 router.get("/admin/all", requireAuth, requireRole("admin"), getAdminOrders);

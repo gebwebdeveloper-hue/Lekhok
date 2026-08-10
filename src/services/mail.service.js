@@ -1489,5 +1489,32 @@ export async function sendLibraryCardIssuedEmail(user, libraryCard) {
   }
 }
 
+export async function sendEmail({ to, subject, html, text, attachments }) {
+  const recipient = Array.isArray(to) ? to : [to];
+
+  if (env.resendApiKey) {
+    try {
+      return await sendEmailViaResend({ to: recipient, subject, html, text, attachments });
+    } catch (err) {
+      console.error("[Email] Failed to send via Resend, falling back to SMTP:", err);
+    }
+  }
+
+  try {
+    const transport = getTransport();
+    return await transport.sendMail({
+      from: env.smtp.from || "Lekhok Tripura <no-reply@lekhoktripura.in>",
+      to: Array.isArray(to) ? to.join(",") : to,
+      subject,
+      html,
+      text,
+      attachments
+    });
+  } catch (err) {
+    console.error("[Email] Failed to send via SMTP:", err);
+    throw err;
+  }
+}
+
 
 

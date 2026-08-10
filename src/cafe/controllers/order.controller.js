@@ -2,6 +2,7 @@ import crypto from "crypto";
 import Razorpay from "razorpay";
 import { CafeOrder } from "../models/CafeOrder.js";
 import { env } from "../../config/env.js";
+import { generateCafeInvoicePdfBuffer, sendCafeBillEmailWithPdf } from "../../services/cafeInvoicePdf.service.js";
 
 function getRazorpayInstance() {
   const keyId = env.razorpayKeyId;
@@ -198,15 +199,41 @@ export async function updateOrderStatus(req, res, next) {
       order.customerNotified = true;
     }
 
+    if (status === "Collected") {
+      // Trigger automated email with attached PDF invoice asynchronously
+      sendCafeBillEmailWithPdf(order).catch((err) =>
+        console.error("[Bill Email Send Fail]:", err.message)
+      );
+    }
+
     await order.save();
 
     res.json({
       success: true,
       message: status === "Ready"
         ? "Order marked as Ready! Customer notified to collect meal from counter."
+        : status === "Collected"
+        ? "Order marked as Collected! PDF bill receipt sent to customer's email."
         : `Order status updated to ${status}.`,
       order,
     });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ── 7. Download PDF Invoice Receipt ────────────────────────────────────────
+export async function downloadOrderInvoicePdf(req, res, next) {
+  try {
+    const order = await CafeOrder.findById(req.params.id);
+    if (!order) return res.status(404).json({ success: false, message: "Order not found." });
+
+    const pdfBuffer = await generateCafeInvoicePdfBuffer(order);
+    const fileName = `Lekhok_Tripura_Invoice_${order.orderNumber || order._id}.pdf`;
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+    res.send(pdfBuffer);
   } catch (err) {
     next(err);
   }

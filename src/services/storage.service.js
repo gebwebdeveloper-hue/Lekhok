@@ -17,21 +17,26 @@ export async function persistUploadedFile(file, folder = "misc", resourceType = 
   if (!file) return undefined;
 
   if (env.storageDriver === "cloudinary" && env.cloudinary.cloudName) {
-    const isPrivate = folder === "pdfs" || (folder === "previews" && resourceType === "raw");
-    const result = await cloudinary.uploader.upload(file.path, {
-      folder: `lekhak/${folder}`,
-      resource_type: resourceType,
-      ...(isPrivate ? { type: "authenticated" } : {})
-    });
-    await fs.unlink(file.path).catch(() => {});
-    return {
-      url: result.secure_url,
-      publicId: result.public_id,
-      storage: "cloudinary",
-      mimeType: file.mimetype,
-      size: file.size,
-      originalName: file.originalname
-    };
+    try {
+      const isPrivate = folder === "pdfs" || (folder === "previews" && resourceType === "raw");
+      const result = await cloudinary.uploader.upload(file.path, {
+        folder: `lekhak/${folder}`,
+        resource_type: resourceType,
+        timeout: 60000,
+        ...(isPrivate ? { type: "authenticated" } : {})
+      });
+      await fs.unlink(file.path).catch(() => {});
+      return {
+        url: result.secure_url,
+        publicId: result.public_id,
+        storage: "cloudinary",
+        mimeType: file.mimetype,
+        size: file.size,
+        originalName: file.originalname
+      };
+    } catch (cloudinaryError) {
+      console.warn("[Storage Service] Cloudinary upload failed/timed out, falling back to local file storage:", cloudinaryError.message || cloudinaryError);
+    }
   }
 
   return {

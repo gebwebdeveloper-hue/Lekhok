@@ -24,6 +24,8 @@ import newsRoutes from "./routes/news.routes.js";
 import rentalRoutes from "./routes/rental.routes.js";
 import libraryCardRoutes from "./routes/libraryCard.routes.js";
 import { LibraryCard } from "./models/LibraryCard.js";
+import cafeMenuRoutes from "./cafe/routes/cafe.menu.routes.js";
+import cafeOrderRoutes from "./cafe/routes/cafe.order.routes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -112,6 +114,8 @@ app.use("/api/categories", categoryRoutes);
 app.use("/api/news", newsRoutes);
 app.use("/api/rentals", rentalRoutes);
 app.use("/api/library-card", libraryCardRoutes);
+app.use("/api/cafe/menu", cafeMenuRoutes);
+app.use("/api/cafe/orders", cafeOrderRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

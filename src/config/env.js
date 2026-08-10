@@ -24,6 +24,7 @@ export const env = {
   clientUrl: process.env.CLIENT_URL || "https://www.lekhoktripura.in",
   serverUrl: process.env.SERVER_URL || (process.env.NODE_ENV === "production" ? "https://lekhok.onrender.com" : "http://localhost:5000"),
   mongoUri: process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/lekhak",
+  cafeMongoUri: process.env.CAFE_MONGODB_URI || "mongodb://127.0.0.1:27017/lekhak-cafe",
   jwtSecret: process.env.JWT_SECRET || "dev-only-change-me",
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "7d",
   cookieName: process.env.COOKIE_NAME || "lekhak_token",

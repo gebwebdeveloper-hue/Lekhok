@@ -68,3 +68,6 @@ Stack: MongoServerSelectionError: connection <monitor> to 159.143.161.58:27017 c
     at async AggregationCursor.fetchBatch (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\cursor\abstract_cursor.js:666:13)
     at async AggregationCursor.next (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\cursor\abstract_cursor.js:342:17)
 
+[2026-08-10T14:46:39.414Z] ERROR: undefined
+Stack: undefined
+

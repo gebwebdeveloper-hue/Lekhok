@@ -27,7 +27,7 @@ export function errorHandler(error, _req, res, _next) {
 
   const payload = {
     success: false,
-    message: statusCode === 500 ? "Internal server error" : error.message
+    message: error.message || (statusCode === 500 ? "Internal server error" : "Request failed")
   };
 
   if (error.details) payload.details = error.details;

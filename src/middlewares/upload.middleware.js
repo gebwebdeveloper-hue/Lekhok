@@ -17,6 +17,7 @@ const storage = multer.diskStorage({
     if (["previewPdf", "pdf", "document", "libraryCardPdf"].includes(file.fieldname)) folder = "pdfs";
     if (file.fieldname === "paymentScreenshot") folder = "payments";
     if (file.fieldname === "thumbnail") folder = "authors";
+    if (file.fieldname === "cafeImage" || file.fieldname === "image") folder = "cafe-menu";
     const dir = path.join(uploadRoot, folder);
     ensureDir(dir);
     cb(null, dir);
@@ -57,3 +58,4 @@ export const bookUpload = upload.fields([
 
 export const paymentUpload = upload.single("paymentScreenshot");
 export const libraryCardPdfUpload = upload.single("libraryCardPdf");
+export const cafeImageUpload = upload.single("cafeImage");

@@ -43,10 +43,10 @@ export const getMyLibraryCard = asyncHandler(async (req, res) => {
 
 // 2. Create Razorpay order for Library Card purchase (₹99 + 18% GST = ₹116.82)
 export const createLibraryCardOrder = asyncHandler(async (req, res) => {
-  const cardFee = 1;
-  const gstAmount = 0;
-  const totalAmount = 1;
-  const amountInPaise = 100; // 100 paise = ₹1
+  const cardFee = 99;
+  const gstAmount = Math.round(cardFee * 0.18 * 100) / 100; // ₹17.82
+  const totalAmount = Math.round((cardFee + gstAmount) * 100) / 100; // ₹116.82
+  const amountInPaise = Math.round(totalAmount * 100); // 11682 paise
 
   const keyId = env.razorpayKeyId;
   const keySecret = env.razorpayKeySecret;
@@ -172,9 +172,9 @@ export const verifyLibraryCardPayment = asyncHandler(async (req, res) => {
     emergencyContact: emergencyContact || "",
     co: co || "",
     fullAddress: fullAddress || "",
-    cardFee: 1,
-    gstAmount: 0,
-    totalAmount: 1,
+    cardFee: 99,
+    gstAmount: 17.82,
+    totalAmount: 116.82,
     paymentId: razorpay_payment_id || `PAY_CARD_${Date.now()}`,
     orderId: razorpay_order_id || `ORD_CARD_${Date.now()}`,
     pdfUrl: pdfResult.url,

@@ -2,6 +2,7 @@ import crypto from "crypto";
 import Razorpay from "razorpay";
 import { env } from "../../config/env.js";
 import { CafeSpaceBooking } from "../models/CafeSpaceBooking.js";
+import { CafeTable } from "../models/CafeTable.js";
 
 const razorpay = new Razorpay({
   key_id: env.razorpayKeyId,
@@ -49,7 +50,7 @@ export async function getSpaceAvailability(req, res, next) {
   }
 }
 
-// POST /api/cafe/space/create-booking-order  (auth required)
+// POST /api/cafe/space/create-booking-order (auth required)
 export async function createSpaceBookingOrder(req, res, next) {
   try {
     const { spaceType, bookingDate, timeSlot, durationHours, guestsCount, purpose, amount } = req.body;
@@ -115,7 +116,7 @@ export async function createSpaceBookingOrder(req, res, next) {
   }
 }
 
-// POST /api/cafe/space/verify-booking-payment  (auth required)
+// POST /api/cafe/space/verify-booking-payment (auth required)
 export async function verifySpaceBookingPayment(req, res, next) {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, bookingId } = req.body;
@@ -150,7 +151,7 @@ export async function verifySpaceBookingPayment(req, res, next) {
   }
 }
 
-// GET /api/cafe/space/my-bookings  (auth required)
+// GET /api/cafe/space/my-bookings (auth required)
 export async function getMySpaceBookings(req, res, next) {
   try {
     const userId = req.user?._id?.toString();
@@ -161,7 +162,7 @@ export async function getMySpaceBookings(req, res, next) {
   }
 }
 
-// GET /api/cafe/space/admin/all  (admin required)
+// GET /api/cafe/space/admin/all (admin required)
 export async function getAdminSpaceBookings(req, res, next) {
   try {
     const bookings = await CafeSpaceBooking.find().sort({ createdAt: -1 }).lean();
@@ -171,7 +172,7 @@ export async function getAdminSpaceBookings(req, res, next) {
   }
 }
 
-// PATCH /api/cafe/space/admin/:id/status  (admin required)
+// PATCH /api/cafe/space/admin/:id/status (admin required)
 export async function updateSpaceBookingStatus(req, res, next) {
   try {
     const { id } = req.params;
@@ -186,6 +187,105 @@ export async function updateSpaceBookingStatus(req, res, next) {
     await booking.save();
 
     res.json({ success: true, message: `Booking status updated to ${status}`, booking });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ── TABLE MANAGEMENT ENDPOINTS ───────────────────────────────────────────────
+
+/**
+ * GET /api/cafe/space/admin/tables
+ * Returns list of all cafe tables/desks for reservation layout. Seeds initial tables if empty.
+ */
+export async function getAdminTables(req, res, next) {
+  try {
+    let tables = await CafeTable.find().sort({ tableNumber: 1 }).lean();
+
+    // Auto-seed default initial tables if none exist in DB
+    if (tables.length === 0) {
+      const defaultTables = [
+        { tableNumber: "Table R-01", spaceType: "Book Reader's Corner", capacity: 2, status: "Available", notes: "Window Leather Recliner & Ambient Reading Lamp" },
+        { tableNumber: "Table R-02", spaceType: "Book Reader's Corner", capacity: 2, status: "Available", notes: "Cozy Armchair Nook" },
+        { tableNumber: "Desk W-01", spaceType: "Book Writer's Corner", capacity: 1, status: "Available", notes: "Ergonomic Focus Writing Desk with Power Outlets" },
+        { tableNumber: "Desk W-02", spaceType: "Book Writer's Corner", capacity: 1, status: "Available", notes: "Spacious Wooden Laptop Desk" },
+        { tableNumber: "Studio A-01", spaceType: "Artist Corner", capacity: 1, status: "Available", notes: "Solid Wooden Easel Workstation & Sunlight Lamp" },
+        { tableNumber: "Studio A-02", spaceType: "Artist Corner", capacity: 1, status: "Available", notes: "Sculpting & Drawing Studio Workstation" },
+      ];
+
+      await CafeTable.insertMany(defaultTables);
+      tables = await CafeTable.find().sort({ tableNumber: 1 }).lean();
+    }
+
+    res.json({ success: true, tables });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /api/cafe/space/admin/tables
+ * Create a new table/desk slot
+ */
+export async function createTable(req, res, next) {
+  try {
+    const { tableNumber, spaceType, capacity, notes, status } = req.body;
+    if (!tableNumber) {
+      return res.status(400).json({ success: false, message: "Table number / name is required." });
+    }
+
+    const table = await CafeTable.create({
+      tableNumber,
+      spaceType: spaceType || "Book Reader's Corner",
+      capacity: Number(capacity) || 1,
+      notes: notes || "",
+      status: status || "Available"
+    });
+
+    res.status(201).json({ success: true, message: "New table added successfully!", table });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * PATCH /api/cafe/space/admin/tables/:id/status
+ * Update status of a table (Available / Reserved / Occupied / Maintenance)
+ */
+export async function updateTableStatus(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { status, notes, currentBookingNumber } = req.body;
+
+    const table = await CafeTable.findById(id);
+    if (!table) {
+      return res.status(404).json({ success: false, message: "Table not found." });
+    }
+
+    if (status) table.status = status;
+    if (notes !== undefined) table.notes = notes;
+    if (currentBookingNumber !== undefined) table.currentBookingNumber = currentBookingNumber;
+
+    await table.save();
+
+    res.json({ success: true, message: `Table ${table.tableNumber} status updated to ${table.status}`, table });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * DELETE /api/cafe/space/admin/tables/:id
+ * Delete a table
+ */
+export async function deleteTable(req, res, next) {
+  try {
+    const table = await CafeTable.findByIdAndDelete(req.params.id);
+    if (!table) {
+      return res.status(404).json({ success: false, message: "Table not found." });
+    }
+
+    res.json({ success: true, message: "Table removed successfully." });
   } catch (err) {
     next(err);
   }

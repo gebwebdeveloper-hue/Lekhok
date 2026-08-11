@@ -8,7 +8,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../middlewares/error.middleware.js";
 import { persistUploadedFile } from "../services/storage.service.js";
 import { sendPhysicalOrderEmail, sendPurchaseConfirmationEmail, sendRefundConfirmationEmail } from "../services/mail.service.js";
-import { createShiprocketOrder, checkPincodeServiceability } from "../services/shiprocket.service.js";
+import { createShiprocketOrder, checkPincodeServiceability, getShiprocketOrderDetails, trackShiprocketByShipmentId, trackShiprocketShipment } from "../services/shiprocket.service.js";
 import { env } from "../config/env.js";
 
 // 18% GST applied on every book purchase
@@ -112,6 +112,30 @@ export const createPurchaseRequest = asyncHandler(async (req, res) => {
 
 export const myPurchases = asyncHandler(async (req, res) => {
   const purchases = await PurchaseRequest.find({ userId: req.user._id }).populate("bookId").sort({ createdAt: -1 });
+
+  // Auto-sync live Shiprocket tracking for physical orders
+  for (const purchase of purchases) {
+    if (purchase.format !== "ebook" && purchase.shiprocketOrderId && purchase.shipmentStatus !== "delivered") {
+      try {
+        const orderInfo = await getShiprocketOrderDetails(purchase.shiprocketOrderId);
+        if (orderInfo) {
+          if (orderInfo.courier_name) purchase.courierService = orderInfo.courier_name;
+          if (orderInfo.awb_code) purchase.trackingNumber = orderInfo.awb_code;
+
+          const rawStatus = (orderInfo.status || "").toUpperCase();
+          if (rawStatus.includes("DELIVERED")) purchase.shipmentStatus = "delivered";
+          else if (rawStatus.includes("TRANSIT") || rawStatus.includes("SHIPPED") || rawStatus.includes("OUT FOR DELIVERY")) purchase.shipmentStatus = "shipped";
+          else if (rawStatus.includes("PICKUP") || rawStatus.includes("MANIFEST")) purchase.shipmentStatus = "processing";
+
+          if (orderInfo.etd) purchase.estimatedDeliveryDate = new Date(orderInfo.etd);
+          await purchase.save();
+        }
+      } catch {
+        // ignore background sync errors
+      }
+    }
+  }
+
   res.json({ success: true, purchases });
 });
 
@@ -983,6 +1007,65 @@ export const syncPurchaseToShiprocket = asyncHandler(async (req, res) => {
     message: "Order successfully synced to Shiprocket!",
     purchase,
     shiprocket: shiprocketRes
+  });
+});
+
+export const autoSyncShiprocketTracking = asyncHandler(async (req, res) => {
+  const purchase = await PurchaseRequest.findById(req.params.id);
+  if (!purchase) throw new ApiError(404, "Purchase request not found.");
+
+  if (!purchase.shiprocketOrderId && !purchase.shiprocketShipmentId && !purchase.trackingNumber) {
+    throw new ApiError(400, "This order does not have an active Shiprocket Order or AWB ID yet.");
+  }
+
+  let trackingInfo = null;
+  let orderInfo = null;
+
+  if (purchase.shiprocketOrderId) {
+    orderInfo = await getShiprocketOrderDetails(purchase.shiprocketOrderId);
+  }
+
+  if (purchase.trackingNumber) {
+    trackingInfo = await trackShiprocketShipment(purchase.trackingNumber);
+  } else if (purchase.shiprocketShipmentId) {
+    trackingInfo = await trackShiprocketByShipmentId(purchase.shiprocketShipmentId);
+  }
+
+  const courierName = orderInfo?.courier_name || trackingInfo?.tracking_data?.courier_name || purchase.courierService || "Shiprocket Logistics";
+  const awbCode = orderInfo?.awb_code || (trackingInfo?.tracking_data?.track_url ? purchase.trackingNumber : (orderInfo?.awb_code || purchase.trackingNumber));
+
+  const rawStatus = (orderInfo?.status || trackingInfo?.tracking_data?.current_status || "").toUpperCase();
+
+  let mappedStatus = purchase.shipmentStatus || "processing";
+  if (rawStatus.includes("DELIVERED")) mappedStatus = "delivered";
+  else if (rawStatus.includes("TRANSIT") || rawStatus.includes("SHIPPED") || rawStatus.includes("OUT FOR DELIVERY")) mappedStatus = "shipped";
+  else if (rawStatus.includes("PICKUP") || rawStatus.includes("MANIFEST") || rawStatus.includes("NEW")) mappedStatus = "processing";
+
+  const currentLocation = trackingInfo?.tracking_data?.scans?.[0]?.location || orderInfo?.pickup_location || "Warehouse";
+  const estimatedDate = orderInfo?.etd || trackingInfo?.tracking_data?.etd || null;
+
+  if (courierName) purchase.courierService = courierName;
+  if (awbCode) purchase.trackingNumber = awbCode;
+  if (mappedStatus) purchase.shipmentStatus = mappedStatus;
+  if (currentLocation) purchase.currentLocation = currentLocation;
+  if (estimatedDate) purchase.estimatedDeliveryDate = new Date(estimatedDate);
+
+  if (!purchase.shipmentHistory) purchase.shipmentHistory = [];
+  purchase.shipmentHistory.push({
+    status: mappedStatus,
+    location: currentLocation,
+    note: `Auto-synced live from Shiprocket (Status: ${rawStatus || mappedStatus})`,
+    timestamp: new Date()
+  });
+
+  await purchase.save();
+
+  res.json({
+    success: true,
+    message: `Shiprocket tracking auto-synced! Status: ${mappedStatus}`,
+    purchase,
+    orderInfo,
+    trackingInfo
   });
 });
 

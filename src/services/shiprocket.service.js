@@ -4,7 +4,8 @@ let cachedToken = null;
 let tokenExpiryTime = 0;
 
 /**
- * Obtain JWT token from Shiprocket API.
+ * 1. Obtain JWT token from Shiprocket API.
+ * Uses API User credentials (Settings -> API Users in Shiprocket Panel).
  * Caches token in memory until near expiration (10 days token lifetime).
  */
 export const getShiprocketToken = async () => {
@@ -48,7 +49,31 @@ export const getShiprocketToken = async () => {
 };
 
 /**
- * Automatically create an Ad-hoc Order in Shiprocket for a physical book purchase.
+ * 2. Check courier serviceability & estimated shipping charges
+ * GET /v1/external/courier/serviceability/
+ */
+export const checkPincodeServiceability = async (deliveryPincode, weightKg = 0.4, pickupPincode = "799001", cod = 0) => {
+  const token = await getShiprocketToken();
+  if (!token) return null;
+
+  try {
+    const url = `https://apiv2.shiprocket.in/v1/external/courier/serviceability/?pickup_postcode=${pickupPincode}&delivery_postcode=${deliveryPincode}&weight=${weightKg}&cod=${cod}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("[Shiprocket Serviceability Error]:", error.message);
+    return null;
+  }
+};
+
+/**
+ * 3. Create Ad-hoc Order in Shiprocket
+ * POST /v1/external/orders/create/adhoc
  */
 export const createShiprocketOrder = async ({ purchase, book, user }) => {
   const token = await getShiprocketToken();
@@ -78,7 +103,7 @@ export const createShiprocketOrder = async ({ purchase, book, user }) => {
   const payload = {
     order_id: `LT-${purchase._id.toString().slice(-8).toUpperCase()}`,
     order_date: formattedDate,
-    pickup_location: env.shiprocket.pickupLocation || "Primary",
+    pickup_location: env.shiprocket.pickupLocation || "work",
     billing_customer_name: firstName,
     billing_last_name: lastName,
     billing_address: streetAddress.slice(0, 95),
@@ -93,7 +118,7 @@ export const createShiprocketOrder = async ({ purchase, book, user }) => {
     order_items: [
       {
         name: book.title || "Paperback Book",
-        sku: book._id.toString(),
+        sku: book._id ? book._id.toString() : "BK-100",
         units: 1,
         selling_price: Math.max(1, purchase.amount - (purchase.deliveryCharge || 0)),
         discount: 0,
@@ -121,16 +146,20 @@ export const createShiprocketOrder = async ({ purchase, book, user }) => {
     });
 
     const data = await response.json();
+    console.log("[Shiprocket Order Raw Response]:", data);
 
-    if (!response.ok || data.status_code === 0) {
-      console.error("[Shiprocket Order Error]:", data);
+    const orderId = data.order_id || data.data?.order_id || data.order_number || data.channel_order_id;
+    const shipmentId = data.shipment_id || data.data?.shipment_id;
+
+    if (!response.ok || data.status_code === 0 || !orderId) {
+      console.error("[Shiprocket Order Error]:", data.message || data);
       return null;
     }
 
-    console.log(`[Shiprocket] Order created successfully! Order ID: ${data.order_id}, Shipment ID: ${data.shipment_id}`);
+    console.log(`[Shiprocket] Order created successfully! Order ID: ${orderId}, Shipment ID: ${shipmentId}`);
     return {
-      orderId: data.order_id,
-      shipmentId: data.shipment_id,
+      orderId,
+      shipmentId,
       status: data.status,
       raw: data
     };
@@ -141,48 +170,88 @@ export const createShiprocketOrder = async ({ purchase, book, user }) => {
 };
 
 /**
- * Check courier serviceability & estimated rate for a delivery pincode
+ * 4. Fetch Order Details (including courier, AWB, shipment status)
+ * GET /v1/external/orders/show/{order_id}
  */
-export const checkPincodeServiceability = async (deliveryPincode, weightKg = 0.4) => {
+export const getShiprocketOrderDetails = async (orderId) => {
   const token = await getShiprocketToken();
-  if (!token) return null;
+  if (!token || !orderId) return null;
 
   try {
-    const url = `https://apiv2.shiprocket.in/v1/external/courier/serviceability/?pickup_postcode=799001&delivery_postcode=${deliveryPincode}&weight=${weightKg}&cod=0`;
-    const response = await fetch(url, {
+    const response = await fetch(`https://apiv2.shiprocket.in/v1/external/orders/show/${orderId}`, {
       method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
+      headers: { Authorization: `Bearer ${token}` }
     });
 
     const data = await response.json();
-    return data;
+    return data?.data || data;
   } catch (error) {
-    console.error("[Shiprocket Serviceability Error]:", error.message);
+    console.error("[Shiprocket Get Order Details Error]:", error.message);
     return null;
   }
 };
 
 /**
- * Track shipment status by AWB Code or Shipment ID
+ * 5. Track Shipment by Shipment ID
+ * GET /v1/external/courier/track/shipment/{shipment_id}
+ */
+export const trackShiprocketByShipmentId = async (shipmentId) => {
+  const token = await getShiprocketToken();
+  if (!token || !shipmentId) return null;
+
+  try {
+    const response = await fetch(`https://apiv2.shiprocket.in/v1/external/courier/track/shipment/${shipmentId}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("[Shiprocket Track Shipment Error]:", error.message);
+    return null;
+  }
+};
+
+/**
+ * 6. Track Shipment by AWB Code
+ * GET /v1/external/courier/track/awb/{awb_code}
  */
 export const trackShiprocketShipment = async (awbCode) => {
   const token = await getShiprocketToken();
-  if (!token) return null;
+  if (!token || !awbCode) return null;
 
   try {
     const response = await fetch(`https://apiv2.shiprocket.in/v1/external/courier/track/awb/${awbCode}`, {
       method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
+      headers: { Authorization: `Bearer ${token}` }
     });
 
     const data = await response.json();
     return data;
   } catch (error) {
     console.error("[Shiprocket Tracking Error]:", error.message);
+    return null;
+  }
+};
+
+/**
+ * 7. Get Configured Pickup Locations
+ * GET /v1/external/settings/company/pickup
+ */
+export const getShiprocketPickupLocations = async () => {
+  const token = await getShiprocketToken();
+  if (!token) return null;
+
+  try {
+    const response = await fetch("https://apiv2.shiprocket.in/v1/external/settings/company/pickup", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("[Shiprocket Pickup Locations Error]:", error.message);
     return null;
   }
 };

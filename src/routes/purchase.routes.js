@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { adminPurchases, approvePurchase, createPurchaseRequest, createBatchPurchaseRequests, myPurchases, rejectPurchase, getPaymentConfig, updatePaymentConfig, updateShipmentStatus, getPurchaseInvoice, createRazorpayOrder, verifyRazorpayPayment, deletePurchase, updatePurchaseDetails, processRefund, checkDeliveryPincode, syncPurchaseToShiprocket } from "../controllers/purchase.controller.js";
+import { adminPurchases, approvePurchase, createPurchaseRequest, createBatchPurchaseRequests, myPurchases, rejectPurchase, getPaymentConfig, updatePaymentConfig, updateShipmentStatus, getPurchaseInvoice, createRazorpayOrder, verifyRazorpayPayment, deletePurchase, updatePurchaseDetails, processRefund, checkDeliveryPincode, syncPurchaseToShiprocket, autoSyncShiprocketTracking } from "../controllers/purchase.controller.js";
 import { requireAuth, requireRole } from "../middlewares/auth.middleware.js";
 import { paymentUpload, upload } from "../middlewares/upload.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
@@ -23,6 +23,7 @@ router.get("/admin", requireAuth, requireRole("admin"), adminPurchases);
 router.get("/:id/invoice", requireAuth, getPurchaseInvoice);
 router.patch("/:id/approve", requireAuth, requireRole("admin"), validate(adminNoteSchema), approvePurchase);
 router.post("/:id/sync-shiprocket", requireAuth, requireRole("admin"), syncPurchaseToShiprocket);
+router.post("/:id/auto-sync-tracking", requireAuth, autoSyncShiprocketTracking);
 router.patch("/:id/reject", requireAuth, requireRole("admin"), validate(adminNoteSchema), rejectPurchase);
 router.patch("/:id/shipment", requireAuth, requireRole("admin"), validate(updateShipmentSchema), updateShipmentStatus);
 router.post("/:id/refund", requireAuth, requireRole("admin"), processRefund);

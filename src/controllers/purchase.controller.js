@@ -966,18 +966,33 @@ export const checkDeliveryPincode = asyncHandler(async (req, res) => {
     return res.json({
       success: true,
       serviceable: true,
+      minRate: null,
       message: "Delivery available via Shiprocket / Speed Post."
     });
   }
 
+  const companies = result.data.available_courier_companies || [];
   const serviceable = Boolean(
-    result.data.courier_name ||
-    (result.data.available_courier_companies && result.data.available_courier_companies.length > 0)
+    result.data.courier_name || companies.length > 0
   );
+
+  let minRate = null;
+  if (companies.length > 0) {
+    const rates = companies.map(c => Number(c.rate)).filter(r => !isNaN(r) && r > 0);
+    if (rates.length > 0) {
+      minRate = Math.round(Math.min(...rates) * 100) / 100;
+    }
+  }
 
   res.json({
     success: true,
     serviceable,
+    minRate,
+    couriers: companies.map(c => ({
+      name: c.courier_name,
+      rate: c.rate,
+      etd: c.etd
+    })),
     courierData: result.data
   });
 });

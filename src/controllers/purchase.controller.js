@@ -17,7 +17,7 @@ const applyGST = (basePrice) => Math.round(Number(basePrice) * (1 + GST_RATE) * 
 
 // Delivery charge for paperback/hardcover based on state
 const DELIVERY_CHARGES = {
-  tripura: 0,
+  tripura: 80,
   "west bengal": 100,
   "westbengal": 100,
 };

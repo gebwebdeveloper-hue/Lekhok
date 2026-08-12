@@ -28,6 +28,7 @@ import cafeMenuRoutes from "./cafe/routes/cafe.menu.routes.js";
 import cafeOrderRoutes from "./cafe/routes/cafe.order.routes.js";
 import cafeSpaceRoutes from "./cafe/routes/cafe.space.routes.js";
 import cafeUpdateRoutes from "./cafe/routes/cafe.update.routes.js";
+import cafeCategoryRoutes from "./cafe/routes/cafe.category.routes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -120,6 +121,7 @@ app.use("/api/cafe/menu", cafeMenuRoutes);
 app.use("/api/cafe/orders", cafeOrderRoutes);
 app.use("/api/cafe/space", cafeSpaceRoutes);
 app.use("/api/cafe/updates", cafeUpdateRoutes);
+app.use("/api/cafe/categories", cafeCategoryRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

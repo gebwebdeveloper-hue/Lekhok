@@ -146,9 +146,9 @@ export async function uploadMenuImage(req, res, next) {
       return res.status(400).json({ success: false, message: "No image file uploaded." });
     }
 
-    // Max size check: 2MB (2 * 1024 * 1024 bytes)
-    if (req.file.size > 2 * 1024 * 1024) {
-      return res.status(400).json({ success: false, message: "Image size must be 2MB or smaller." });
+    // Max size check: 5MB (5 * 1024 * 1024 bytes)
+    if (req.file.size > 5 * 1024 * 1024) {
+      return res.status(400).json({ success: false, message: "Image size must be 5MB or smaller." });
     }
 
     // Format check: PNG, JPG, JPEG, WEBP

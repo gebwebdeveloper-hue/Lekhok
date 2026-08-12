@@ -17,6 +17,13 @@ const menuItemSchema = new mongoose.Schema(
     featured: { type: Boolean, default: false },
     tags: [{ type: String, trim: true }],
     preparationTime: { type: Number, default: 10 }, // minutes
+    ingredients: [
+      {
+        name: { type: String, trim: true },
+        percent: { type: String, trim: true }, // e.g. "100%", "To Taste", "0%"
+      },
+    ],
+    howItLooks: { type: String, trim: true, default: "" }, // e.g. "Dark brown with thick golden crema on top"
   },
   { timestamps: true }
 );

@@ -41,7 +41,7 @@ export const env = {
     pass: process.env.SMTP_PASS,
     from: process.env.MAIL_FROM || "Lekhok Tripura <no-reply@lekhoktripura.in>"
   },
-  adminEmails: (process.env.ADMIN_EMAILS || "").split(",").map((email) => email.trim().toLowerCase()).filter(Boolean),
+  adminEmails: (process.env.ADMIN_EMAILS || "kiransamanta88@gmail.com,lekhok.tripura@gmail.com,lekhoktripura.website@gmail.com,lekhoktripura.publishers@gmail.com,helpdesk.lekhoktripura@gmail.com,lekhoktripura.cafe@gmail.com,lekhoktripurapublishers@outlook.com,lekhoktripurapublishers@yahoo.com").split(",").map((email) => email.trim().toLowerCase()).filter(Boolean),
   upiId: process.env.UPI_ID || "",
   upiQrImageUrl: process.env.UPI_QR_IMAGE_URL || "",
   storageDriver: process.env.STORAGE_DRIVER || "local",

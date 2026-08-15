@@ -64,7 +64,8 @@ app.use(
         allowedOrigins.includes(originNormalized) ||
         originNormalized === "http://localhost:5173" ||
         originNormalized.endsWith("lekhoktripura.in") ||
-        originNormalized.endsWith("onrender.com");
+        originNormalized.endsWith("onrender.com") ||
+        originNormalized.endsWith("netlify.app");
 
       if (isAllowed) {
         callback(null, true);
@@ -102,7 +103,10 @@ app.get("/api/health", (_req, res) => {
   res.json({ success: true, service: "LEKHAK API", status: "ok" });
 });
 
+import publisherRoutes from "./routes/publisher.routes.js";
+
 app.use("/api/auth", authRoutes);
+app.use("/api/publisher", publisherRoutes);
 app.use("/api/books", bookRoutes);
 app.use("/api/purchase", purchaseRoutes);
 app.use("/api/reader", readerRoutes);

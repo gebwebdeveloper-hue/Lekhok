@@ -46,6 +46,8 @@ function uploadManuscript(req, res, next) {
   });
 }
 
+import { createOrUpdateAuthorFromForm } from "../utils/authorAuth.js";
+
 router.post("/free", uploadManuscript, validate(freePublishingSchema), async (req, res, next) => {
   try {
     if (!req.file) throw new ApiError(400, "Please upload your manuscript (PDF/DOCX) under 10MB.");
@@ -58,11 +60,22 @@ router.post("/free", uploadManuscript, validate(freePublishingSchema), async (re
       console.error("[Email] Failed to notify admin about free publishing application:", error);
     }
 
+    // Auto-create Author account & email credentials
+    try {
+      await createOrUpdateAuthorFromForm({
+        ...req.body,
+        planName: "Free Sponsored Publishing"
+      });
+    } catch (authErr) {
+      console.error("[AuthorPortal] Failed to create author account for free publishing:", authErr);
+    }
+
     res.status(201).json({ success: true, adminEmailSent });
   } catch (error) {
     next(error);
   }
 });
+
 
 
 const ADDON_PRICES = {
@@ -212,9 +225,19 @@ router.post("/plan", uploadManuscript, validate(selfPublishingPlanSchema), async
       console.error("[Email] Failed to send user confirmation email for self publishing:", error);
     }
 
+    // Auto-create Author account & email credentials
+    try {
+      await createOrUpdateAuthorFromForm({
+        ...req.body
+      });
+    } catch (authErr) {
+      console.error("[AuthorPortal] Failed to create author account for self publishing plan:", authErr);
+    }
+
     res.status(201).json({ success: true, adminEmailSent, userEmailSent });
   } catch (error) {
     next(error);
   }
 });
+
 export default router;

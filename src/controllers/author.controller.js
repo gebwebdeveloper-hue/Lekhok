@@ -26,19 +26,36 @@ export const listAllAuthors = asyncHandler(async (_req, res) => {
   res.json({ success: true, authors });
 });
 
+import { createOrUpdateAuthorFromForm } from "../utils/authorAuth.js";
+
 /** POST /api/authors — admin only, create author */
 export const createAuthor = asyncHandler(async (req, res) => {
-  const { name, bio, featured, ourPublicationAuthor, order } = req.body;
+  const { name, bio, featured, ourPublicationAuthor, order, email } = req.body;
   if (!name) throw new ApiError(400, "Author name is required.");
   const thumbnail = await persistUploadedFile(req.file, "authors", "image");
+  const isPubAuthor = ourPublicationAuthor === "true" || ourPublicationAuthor === true;
   const author = await Author.create({
     name,
     bio,
     thumbnail,
     featured: featured === "true" || featured === true,
-    ourPublicationAuthor: ourPublicationAuthor === "true" || ourPublicationAuthor === true,
+    ourPublicationAuthor: isPubAuthor,
     order: order !== undefined ? Number(order) : 0
   });
+
+  // Auto-sync into AuthorPortalUser
+  try {
+    const authorEmail = email || `${name.toLowerCase().replace(/[^a-z0-9]+/g, "")}@lekhoktripura.in`;
+    await createOrUpdateAuthorFromForm({
+      name,
+      email: authorEmail,
+      phone: "9876543210",
+      planName: "Publication Author Plan"
+    });
+  } catch (syncErr) {
+    console.error("[AuthorSync] Error syncing author to portal:", syncErr);
+  }
+
   res.status(201).json({ success: true, author });
 });
 
@@ -46,7 +63,7 @@ export const createAuthor = asyncHandler(async (req, res) => {
 export const updateAuthor = asyncHandler(async (req, res) => {
   const author = await Author.findById(req.params.id);
   if (!author) throw new ApiError(404, "Author not found.");
-  const { name, bio, featured, ourPublicationAuthor, order } = req.body;
+  const { name, bio, featured, ourPublicationAuthor, order, email } = req.body;
   if (name !== undefined) author.name = name;
   if (bio !== undefined) author.bio = bio;
   if (featured !== undefined) author.featured = featured === "true" || featured === true;
@@ -57,6 +74,20 @@ export const updateAuthor = asyncHandler(async (req, res) => {
     if (thumbnail) author.thumbnail = thumbnail;
   }
   await author.save();
+
+  // Auto-sync into AuthorPortalUser
+  try {
+    const authorEmail = email || `${author.name.toLowerCase().replace(/[^a-z0-9]+/g, "")}@lekhoktripura.in`;
+    await createOrUpdateAuthorFromForm({
+      name: author.name,
+      email: authorEmail,
+      phone: "9876543210",
+      planName: "Publication Author Plan"
+    });
+  } catch (syncErr) {
+    console.error("[AuthorSync] Error syncing updated author to portal:", syncErr);
+  }
+
   res.json({ success: true, author });
 });
 

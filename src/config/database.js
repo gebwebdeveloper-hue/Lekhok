@@ -4,8 +4,12 @@ import { env } from "./env.js";
 // ── Cafe Database — separate connection (Menu / Orders / Reservations etc.) ──
 export const cafeDb = mongoose.createConnection();
 
+// ── Author & Publisher Database — separate connection ──
+export const authorDb = mongoose.createConnection();
+
 export async function connectDatabase(retries = 3, delay = 2000) {
   const localMainUri = "mongodb://127.0.0.1:27017/lekhak";
+  const localAuthorUri = "mongodb://127.0.0.1:27017/lekhak-author";
   const localCafeUri = "mongodb://127.0.0.1:27017/lekhak-cafe";
 
   // ── 1. Main DB Connection ────────────────────────────────────────────────
@@ -46,7 +50,38 @@ export async function connectDatabase(retries = 3, delay = 2000) {
     }
   }
 
-  // ── 2. Cafe DB Connection ────────────────────────────────────────────────
+  // ── 2. Author & Publisher DB Connection ────────────────────────────────────
+  let authorConnected = false;
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      await authorDb.openUri(env.authorMongoUri, {
+        serverSelectionTimeoutMS: 5000,
+        socketTimeoutMS: 45000,
+      });
+      console.log("[MongoDB] Author/Publisher DB connected successfully");
+      authorConnected = true;
+      break;
+    } catch (error) {
+      console.error(`[MongoDB] Author DB attempt ${attempt}/${retries} failed:`, error.message);
+      if (attempt < retries) {
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  if (!authorConnected) {
+    if (env.nodeEnv !== "production") {
+      console.log(`[MongoDB] Attempting Author DB fallback to local MongoDB (${localAuthorUri})...`);
+      try {
+        await authorDb.openUri(localAuthorUri, { serverSelectionTimeoutMS: 3000 });
+        console.log("[MongoDB] Author DB connected using local MongoDB fallback ✓");
+      } catch (fallbackErr) {
+        console.error("Failed to connect Author DB to Atlas or Local MongoDB.");
+      }
+    }
+  }
+
+  // ── 3. Cafe DB Connection ────────────────────────────────────────────────
   let cafeConnected = false;
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
@@ -73,10 +108,7 @@ export async function connectDatabase(retries = 3, delay = 2000) {
         console.log("[MongoDB] Cafe DB connected using local MongoDB fallback ✓");
       } catch (fallbackErr) {
         console.error("Failed to connect Cafe DB to Atlas or Local MongoDB.");
-        throw fallbackErr;
       }
-    } else {
-      throw new Error("Could not connect to Cafe MongoDB Atlas cluster.");
     }
   }
 }

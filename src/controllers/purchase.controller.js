@@ -24,11 +24,30 @@ const DELIVERY_CHARGES = {
 const DEFAULT_DELIVERY_CHARGE = 120;
 
 /**
- * Returns the delivery charge (₹) for a physical book based on the buyer's state.
- * @param {string} state - The Indian state name
- * @returns {number} delivery charge in INR
+ * Dynamic Delivery Charge calculation:
+ * Fetches live courier rate from Shiprocket API for the buyer's 6-digit Pincode (`pin`).
+ * If Shiprocket returns courier rates, picks the minimum rate rounded up to nearest ₹.
+ * Fallback to state estimate if pincode API is unavailable.
  */
-const getDeliveryCharge = (state) => {
+const getDeliveryCharge = async (pin, state, weightKg = 0.4) => {
+  if (pin && String(pin).trim().length === 6) {
+    try {
+      const shiprocketRes = await checkPincodeServiceability(String(pin).trim(), weightKg);
+      const companies = shiprocketRes?.data?.available_courier_companies || [];
+      if (companies.length > 0) {
+        const rates = companies.map((c) => Number(c.rate)).filter((r) => !isNaN(r) && r > 0);
+        if (rates.length > 0) {
+          const minRate = Math.min(...rates);
+          console.log(`[Shiprocket Dynamic Live Rate] Pin: ${pin}, Rate: ₹${minRate}`);
+          return Math.ceil(minRate);
+        }
+      }
+    } catch (err) {
+      console.warn("[Delivery Charge] Live Shiprocket rate lookup failed, falling back to state rate:", err.message);
+    }
+  }
+
+  // Fallback state estimation if pincode API unavailable
   if (!state) return DEFAULT_DELIVERY_CHARGE;
   const normalized = state.trim().toLowerCase().replace(/\s+/g, " ");
   if (normalized === "tripura") return DELIVERY_CHARGES.tripura;
@@ -65,7 +84,7 @@ export const createPurchaseRequest = asyncHandler(async (req, res) => {
     ? Math.round(rawBaseAmount * (1 - clubDiscountRate) * 100) / 100
     : rawBaseAmount;
 
-  const deliveryCharge = !isEbook ? getDeliveryCharge(req.body.state) : 0;
+  const deliveryCharge = !isEbook ? await getDeliveryCharge(req.body.pin, req.body.state) : 0;
   const amount = applyGST(baseAmount) + deliveryCharge;
 
   const purchase = await PurchaseRequest.create({
@@ -691,9 +710,9 @@ export const createRazorpayOrder = asyncHandler(async (req, res) => {
   let totalAmountINR = 0;
   const itemsToPurchase = [];
 
-  // Compute delivery charge once (same state for whole cart)
+  // Compute delivery charge dynamically from live Shiprocket API for buyer PIN code
   const hasPhysical = items.some(i => (i.format || "ebook") !== "ebook");
-  const cartDeliveryCharge = hasPhysical ? getDeliveryCharge(state) : 0;
+  const cartDeliveryCharge = hasPhysical ? await getDeliveryCharge(pin, state) : 0;
 
   for (const item of items) {
     const book = await Book.findById(item.bookId);

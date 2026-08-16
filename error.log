@@ -71,3 +71,42 @@ Stack: MongoServerSelectionError: connection <monitor> to 159.143.161.58:27017 c
 [2026-08-10T14:46:39.414Z] ERROR: undefined
 Stack: undefined
 
+[2026-08-16T15:12:31.387Z] ERROR: connection <monitor> to 159.143.161.83:27017 closed
+Stack: MongoServerSelectionError: connection <monitor> to 159.143.161.83:27017 closed
+    at Topology.selectServer (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\sdam\topology.js:327:38)
+    at async tryOperation (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\operations\execute_operation.js:196:22)
+    at async executeOperation (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\operations\execute_operation.js:78:16)
+    at async FindCursor._initialize (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\cursor\find_cursor.js:62:26)
+    at async FindCursor.cursorInit (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\cursor\abstract_cursor.js:632:27)
+    at async FindCursor.fetchBatch (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\cursor\abstract_cursor.js:666:13)
+    at async FindCursor.next (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\cursor\abstract_cursor.js:342:17)
+    at async [Symbol.asyncIterator] (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\cursor\abstract_cursor.js:250:34)
+    at async FindCursor.toArray (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\cursor\abstract_cursor.js:422:26)
+    at async model.Query._find (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongoose\lib\query.js:2430:14)
+
+[2026-08-16T15:12:53.538Z] ERROR: getaddrinfo ENOTFOUND ac-ohf5zj4-shard-00-02.mnjq8yg.mongodb.net
+Stack: MongoServerSelectionError: getaddrinfo ENOTFOUND ac-ohf5zj4-shard-00-02.mnjq8yg.mongodb.net
+    at Topology.selectServer (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\sdam\topology.js:327:38)
+    at async tryOperation (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\operations\execute_operation.js:148:18)
+    at async executeOperation (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\operations\execute_operation.js:78:16)
+    at async FindCursor._initialize (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\cursor\find_cursor.js:62:26)
+    at async FindCursor.cursorInit (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\cursor\abstract_cursor.js:632:27)
+    at async FindCursor.fetchBatch (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\cursor\abstract_cursor.js:666:13)
+    at async FindCursor.next (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\cursor\abstract_cursor.js:342:17)
+    at async [Symbol.asyncIterator] (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\cursor\abstract_cursor.js:250:34)
+    at async FindCursor.toArray (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\cursor\abstract_cursor.js:422:26)
+    at async model.Query._find (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongoose\lib\query.js:2430:14)
+
+[2026-08-16T15:18:21.920Z] ERROR: getaddrinfo ENOTFOUND ac-ohf5zj4-shard-00-02.mnjq8yg.mongodb.net
+Stack: MongoServerSelectionError: getaddrinfo ENOTFOUND ac-ohf5zj4-shard-00-02.mnjq8yg.mongodb.net
+    at Topology.selectServer (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\sdam\topology.js:327:38)
+    at async tryOperation (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\operations\execute_operation.js:148:18)
+    at async executeOperation (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\operations\execute_operation.js:78:16)
+    at async FindCursor._initialize (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\cursor\find_cursor.js:62:26)
+    at async FindCursor.cursorInit (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\cursor\abstract_cursor.js:632:27)
+    at async FindCursor.fetchBatch (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\cursor\abstract_cursor.js:666:13)
+    at async FindCursor.next (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\cursor\abstract_cursor.js:342:17)
+    at async [Symbol.asyncIterator] (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\cursor\abstract_cursor.js:250:34)
+    at async FindCursor.toArray (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongodb\lib\cursor\abstract_cursor.js:422:26)
+    at async model.Query._find (C:\Users\dhay6\Desktop\Lekhak-Tripura\Server\node_modules\mongoose\lib\query.js:2430:14)
+

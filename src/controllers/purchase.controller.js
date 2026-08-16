@@ -1040,23 +1040,46 @@ export const autoSyncShiprocketTracking = asyncHandler(async (req, res) => {
     orderInfo = await getShiprocketOrderDetails(purchase.shiprocketOrderId);
   }
 
+  // Also try tracking by shipment ID or AWB if available
+  const shipmentId = purchase.shiprocketShipmentId || orderInfo?.shipments?.[0]?.id || orderInfo?.shipment_id;
   if (purchase.trackingNumber) {
     trackingInfo = await trackShiprocketShipment(purchase.trackingNumber);
-  } else if (purchase.shiprocketShipmentId) {
-    trackingInfo = await trackShiprocketByShipmentId(purchase.shiprocketShipmentId);
+  } else if (shipmentId) {
+    trackingInfo = await trackShiprocketByShipmentId(shipmentId);
   }
 
-  const courierName = orderInfo?.courier_name || trackingInfo?.tracking_data?.courier_name || purchase.courierService || "Shiprocket Logistics";
-  const awbCode = orderInfo?.awb_code || (trackingInfo?.tracking_data?.track_url ? purchase.trackingNumber : (orderInfo?.awb_code || purchase.trackingNumber));
+  const shipmentObj = orderInfo?.shipments?.[0] || orderInfo?.shipment || {};
 
-  const rawStatus = (orderInfo?.status || trackingInfo?.tracking_data?.current_status || "").toUpperCase();
+  const courierName =
+    orderInfo?.courier_name ||
+    shipmentObj.courier_name ||
+    shipmentObj.courier ||
+    trackingInfo?.tracking_data?.courier_name ||
+    purchase.courierService ||
+    "Shiprocket Logistics";
+
+  const awbCode =
+    orderInfo?.awb_code ||
+    shipmentObj.awb_code ||
+    shipmentObj.awb ||
+    trackingInfo?.tracking_data?.awb_code ||
+    trackingInfo?.tracking_data?.shipment_track?.[0]?.awb_code ||
+    purchase.trackingNumber ||
+    "";
+
+  const rawStatus = (
+    orderInfo?.status ||
+    shipmentObj.status ||
+    trackingInfo?.tracking_data?.current_status ||
+    ""
+  ).toUpperCase();
 
   let mappedStatus = purchase.shipmentStatus || "processing";
   if (rawStatus.includes("DELIVERED")) mappedStatus = "delivered";
   else if (rawStatus.includes("TRANSIT") || rawStatus.includes("SHIPPED") || rawStatus.includes("OUT FOR DELIVERY")) mappedStatus = "shipped";
-  else if (rawStatus.includes("PICKUP") || rawStatus.includes("MANIFEST") || rawStatus.includes("NEW")) mappedStatus = "processing";
+  else if (rawStatus.includes("AWB") || rawStatus.includes("PICKUP") || rawStatus.includes("MANIFEST") || rawStatus.includes("NEW") || rawStatus.includes("READY")) mappedStatus = "processing";
 
-  const currentLocation = trackingInfo?.tracking_data?.scans?.[0]?.location || orderInfo?.pickup_location || "Warehouse";
+  const currentLocation = trackingInfo?.tracking_data?.scans?.[0]?.location || orderInfo?.pickup_location || purchase.currentLocation || "Warehouse";
   const estimatedDate = orderInfo?.etd || trackingInfo?.tracking_data?.etd || null;
 
   if (courierName) purchase.courierService = courierName;
@@ -1069,7 +1092,7 @@ export const autoSyncShiprocketTracking = asyncHandler(async (req, res) => {
   purchase.shipmentHistory.push({
     status: mappedStatus,
     location: currentLocation,
-    note: `Auto-synced live from Shiprocket (Status: ${rawStatus || mappedStatus})`,
+    note: `Auto-synced live from Shiprocket (Status: ${rawStatus || mappedStatus}, AWB: ${awbCode || 'N/A'})`,
     timestamp: new Date()
   });
 
@@ -1077,7 +1100,9 @@ export const autoSyncShiprocketTracking = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    message: `Shiprocket tracking auto-synced! Status: ${mappedStatus}`,
+    message: awbCode
+      ? `Shiprocket tracking auto-synced! AWB: ${awbCode} (${courierName})`
+      : `Shiprocket tracking checked. Order status: ${mappedStatus}`,
     purchase,
     orderInfo,
     trackingInfo

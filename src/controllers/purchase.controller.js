@@ -110,32 +110,71 @@ export const createPurchaseRequest = asyncHandler(async (req, res) => {
   });
 });
 
-export const myPurchases = asyncHandler(async (req, res) => {
-  const purchases = await PurchaseRequest.find({ userId: req.user._id }).populate("bookId").sort({ createdAt: -1 });
+const syncShiprocketForPurchases = async (purchases) => {
+  const pendingSync = purchases.filter(
+    (p) => p.format !== "ebook" && p.shiprocketOrderId && p.shipmentStatus !== "delivered"
+  );
+  if (pendingSync.length === 0) return;
 
-  // Auto-sync live Shiprocket tracking for physical orders
-  for (const purchase of purchases) {
-    if (purchase.format !== "ebook" && purchase.shiprocketOrderId && purchase.shipmentStatus !== "delivered") {
+  await Promise.allSettled(
+    pendingSync.map(async (purchase) => {
       try {
         const orderInfo = await getShiprocketOrderDetails(purchase.shiprocketOrderId);
-        if (orderInfo) {
-          if (orderInfo.courier_name) purchase.courierService = orderInfo.courier_name;
-          if (orderInfo.awb_code) purchase.trackingNumber = orderInfo.awb_code;
+        if (!orderInfo) return;
 
-          const rawStatus = (orderInfo.status || "").toUpperCase();
-          if (rawStatus.includes("DELIVERED")) purchase.shipmentStatus = "delivered";
-          else if (rawStatus.includes("TRANSIT") || rawStatus.includes("SHIPPED") || rawStatus.includes("OUT FOR DELIVERY")) purchase.shipmentStatus = "shipped";
-          else if (rawStatus.includes("PICKUP") || rawStatus.includes("MANIFEST")) purchase.shipmentStatus = "processing";
+        const shipmentObj = orderInfo.shipments?.[0] || orderInfo.shipment || {};
+        const courierName =
+          orderInfo.courier_name ||
+          shipmentObj.courier_name ||
+          shipmentObj.courier ||
+          purchase.courierService;
 
-          if (orderInfo.etd) purchase.estimatedDeliveryDate = new Date(orderInfo.etd);
+        const awbCode =
+          orderInfo.awb_code ||
+          shipmentObj.awb_code ||
+          shipmentObj.awb ||
+          purchase.trackingNumber;
+
+        const rawStatus = (orderInfo.status || shipmentObj.status || "").toUpperCase();
+
+        let changed = false;
+        if (courierName && purchase.courierService !== courierName) {
+          purchase.courierService = courierName;
+          changed = true;
+        }
+        if (awbCode && purchase.trackingNumber !== awbCode) {
+          purchase.trackingNumber = awbCode;
+          changed = true;
+        }
+        if (rawStatus.includes("DELIVERED") && purchase.shipmentStatus !== "delivered") {
+          purchase.shipmentStatus = "delivered";
+          changed = true;
+        } else if (
+          (rawStatus.includes("TRANSIT") || rawStatus.includes("SHIPPED") || rawStatus.includes("OUT FOR DELIVERY")) &&
+          purchase.shipmentStatus !== "shipped"
+        ) {
+          purchase.shipmentStatus = "shipped";
+          changed = true;
+        }
+
+        if (orderInfo.etd) {
+          purchase.estimatedDeliveryDate = new Date(orderInfo.etd);
+          changed = true;
+        }
+
+        if (changed) {
           await purchase.save();
         }
-      } catch {
-        // ignore background sync errors
+      } catch (err) {
+        // ignore background sync error
       }
-    }
-  }
+    })
+  );
+};
 
+export const myPurchases = asyncHandler(async (req, res) => {
+  const purchases = await PurchaseRequest.find({ userId: req.user._id }).populate("bookId").sort({ createdAt: -1 });
+  await syncShiprocketForPurchases(purchases);
   res.json({ success: true, purchases });
 });
 
@@ -146,7 +185,52 @@ export const adminPurchases = asyncHandler(async (req, res) => {
     .populate("userId", "name email role phone age")
     .populate("bookId")
     .sort({ createdAt: -1 });
+  await syncShiprocketForPurchases(purchases);
   res.json({ success: true, purchases });
+});
+
+export const handleShiprocketWebhook = asyncHandler(async (req, res) => {
+  const payload = req.body || {};
+  console.log("[Shiprocket Webhook Payload Received]:", JSON.stringify(payload));
+
+  const orderId = payload.order_id || payload.channel_order_id;
+  const awbCode = payload.awb || payload.awb_code;
+  const courierName = payload.courier_name;
+  const currentStatus = (payload.current_status || payload.status || "").toUpperCase();
+
+  if (!orderId && !awbCode) {
+    return res.status(200).json({ success: true, message: "Webhook acknowledged (no order ID)" });
+  }
+
+  const query = orderId
+    ? { $or: [{ shiprocketOrderId: orderId }, { transactionNumber: orderId }] }
+    : { trackingNumber: awbCode };
+
+  const purchase = await PurchaseRequest.findOne(query);
+  if (purchase) {
+    if (awbCode) purchase.trackingNumber = awbCode;
+    if (courierName) purchase.courierService = courierName;
+
+    if (currentStatus.includes("DELIVERED")) purchase.shipmentStatus = "delivered";
+    else if (currentStatus.includes("TRANSIT") || currentStatus.includes("SHIPPED") || currentStatus.includes("OUT FOR DELIVERY")) purchase.shipmentStatus = "shipped";
+    else if (currentStatus.includes("AWB") || currentStatus.includes("PICKUP") || currentStatus.includes("MANIFEST")) purchase.shipmentStatus = "processing";
+
+    if (payload.etd) purchase.estimatedDeliveryDate = new Date(payload.etd);
+    if (payload.current_location) purchase.currentLocation = payload.current_location;
+
+    if (!purchase.shipmentHistory) purchase.shipmentHistory = [];
+    purchase.shipmentHistory.push({
+      status: purchase.shipmentStatus,
+      location: payload.current_location || purchase.currentLocation || "In Transit",
+      note: `Webhook auto-update from Shiprocket: ${currentStatus}`,
+      timestamp: new Date()
+    });
+
+    await purchase.save();
+    console.log(`[Shiprocket Webhook] Updated order ${purchase._id} with AWB: ${awbCode}, Status: ${purchase.shipmentStatus}`);
+  }
+
+  res.status(200).json({ success: true, message: "Webhook processed successfully" });
 });
 
 export const approvePurchase = asyncHandler(async (req, res) => {

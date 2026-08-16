@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { adminPurchases, approvePurchase, createPurchaseRequest, createBatchPurchaseRequests, myPurchases, rejectPurchase, getPaymentConfig, updatePaymentConfig, updateShipmentStatus, getPurchaseInvoice, createRazorpayOrder, verifyRazorpayPayment, deletePurchase, updatePurchaseDetails, processRefund, checkDeliveryPincode, syncPurchaseToShiprocket, autoSyncShiprocketTracking } from "../controllers/purchase.controller.js";
+import { adminPurchases, approvePurchase, createPurchaseRequest, createBatchPurchaseRequests, myPurchases, rejectPurchase, getPaymentConfig, updatePaymentConfig, updateShipmentStatus, getPurchaseInvoice, createRazorpayOrder, verifyRazorpayPayment, deletePurchase, updatePurchaseDetails, processRefund, checkDeliveryPincode, syncPurchaseToShiprocket, autoSyncShiprocketTracking, handleShiprocketWebhook } from "../controllers/purchase.controller.js";
 import { requireAuth, requireRole } from "../middlewares/auth.middleware.js";
 import { paymentUpload, upload } from "../middlewares/upload.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
@@ -11,6 +11,9 @@ const router = Router();
 router.get("/config", getPaymentConfig);
 router.put("/config", requireAuth, requireRole("admin"), upload.single("upiQrImage"), updatePaymentConfig);
 router.get("/check-pincode/:pincode", checkDeliveryPincode);
+router.post("/tracking-update", handleShiprocketWebhook);
+router.post("/courier-webhook", handleShiprocketWebhook);
+router.post("/shiprocket-webhook", handleShiprocketWebhook);
 
 // Automated Razorpay Payment Endpoints
 router.post("/razorpay/create-order", requireAuth, createRazorpayOrder);

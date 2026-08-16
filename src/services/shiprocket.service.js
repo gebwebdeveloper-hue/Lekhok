@@ -100,6 +100,9 @@ export const createShiprocketOrder = async ({ purchase, book, user }) => {
   if (address.block) streetAddress += `Block: ${address.block}`;
   if (!streetAddress) streetAddress = address.district || "Address details provided in order";
 
+  const bookPriceInclGST = Math.max(1, purchase.amount - (purchase.deliveryCharge || 0));
+  const baseBookPricePreTax = Math.round((bookPriceInclGST / 1.18) * 100) / 100;
+
   const payload = {
     order_id: `LT-${purchase._id.toString().slice(-8).toUpperCase()}`,
     order_date: formattedDate,
@@ -120,7 +123,7 @@ export const createShiprocketOrder = async ({ purchase, book, user }) => {
         name: book.title || "Paperback Book",
         sku: book._id ? book._id.toString() : "BK-100",
         units: 1,
-        selling_price: Math.max(1, purchase.amount - (purchase.deliveryCharge || 0)),
+        selling_price: baseBookPricePreTax,
         discount: 0,
         tax: 18,
         hsn: 4901
@@ -128,7 +131,7 @@ export const createShiprocketOrder = async ({ purchase, book, user }) => {
     ],
     payment_method: "Prepaid",
     shipping_charges: purchase.deliveryCharge || 0,
-    sub_total: purchase.amount,
+    sub_total: baseBookPricePreTax,
     length: 22,
     breadth: 15,
     height: 3,

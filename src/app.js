@@ -106,6 +106,7 @@ app.get("/api/health", (_req, res) => {
 import publisherRoutes from "./routes/publisher.routes.js";
 
 import financialRoutes from "./routes/financial.routes.js";
+import crmRoutes from "./routes/crm.routes.js";
 
 app.use("/api/auth", authRoutes);
 app.use("/api/publisher", publisherRoutes);
@@ -124,6 +125,7 @@ app.use("/api/news", newsRoutes);
 app.use("/api/rentals", rentalRoutes);
 app.use("/api/library-card", libraryCardRoutes);
 app.use("/api/financial", financialRoutes);
+app.use("/api/crm", crmRoutes);
 app.use("/api/cafe/menu", cafeMenuRoutes);
 app.use("/api/cafe/orders", cafeOrderRoutes);
 app.use("/api/cafe/space", cafeSpaceRoutes);

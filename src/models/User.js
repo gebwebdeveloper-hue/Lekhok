@@ -1,5 +1,17 @@
 import mongoose from "mongoose";
 
+const followUpLogSchema = new mongoose.Schema(
+  {
+    date: { type: Date, default: Date.now },
+    note: { type: String, required: true, trim: true },
+    adminName: { type: String, default: "Admin", trim: true },
+    status: { type: String, default: "Logged", trim: true },
+    sentiment: { type: String, default: "Neutral", trim: true },
+    paymentStatus: { type: String, default: "Pending", trim: true }
+  },
+  { _id: true, timestamps: true }
+);
+
 const userSchema = new mongoose.Schema(
   {
     name: { type: String, trim: true, maxlength: 80 },
@@ -19,6 +31,25 @@ const userSchema = new mongoose.Schema(
     postOffice: { type: String, trim: true, maxlength: 80 },
     nearbyLocation: { type: String, trim: true, maxlength: 200 },
     memberId: { type: String, trim: true, default: "", index: true },
+    // ── CRM SPECIFIC ATTRIBUTES ──
+    followUpCount: { type: Number, default: 0 },
+    followUpLogs: [followUpLogSchema],
+    sentiment: {
+      type: String,
+      enum: ["Positive", "Negative", "Neutral", "Hot Lead", "Cold Lead"],
+      default: "Neutral",
+      index: true
+    },
+    paymentStatus: {
+      type: String,
+      enum: ["Paid", "Pending", "Partial", "Refunded"],
+      default: "Pending",
+      index: true
+    },
+    paymentAmount: { type: Number, default: 0 },
+    crmNotes: { type: String, default: "", trim: true },
+    nextFollowUpDate: { type: Date },
+    lastFollowUpAt: { type: Date }
   },
   { timestamps: true }
 );
@@ -32,4 +63,3 @@ userSchema.set("toJSON", {
 });
 
 export const User = mongoose.model("User", userSchema);
-

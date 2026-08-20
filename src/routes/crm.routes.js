@@ -167,7 +167,6 @@ router.post(
 
     let existing = await User.findOne({ email: email.toLowerCase().trim() });
     if (existing) {
-      // Update existing
       existing.name = name || existing.name;
       existing.phone = phone || existing.phone;
       existing.co = co || existing.co;
@@ -196,6 +195,90 @@ router.post(
     });
 
     res.status(201).json({ success: true, message: "New lead created successfully.", user: newUser });
+  })
+);
+
+// POST /api/crm/import - Master Excel Sync: Upserts present rows & purges deleted rows from MongoDB
+router.post(
+  "/import",
+  asyncHandler(async (req, res) => {
+    const { records, syncMode = "full" } = req.body;
+    if (!Array.isArray(records) || records.length === 0) {
+      return res.status(400).json({ success: false, message: "No valid Excel user records provided." });
+    }
+
+    let updatedCount = 0;
+    let createdCount = 0;
+    const importedEmails = [];
+
+    for (const item of records) {
+      const email = item.email || item.Email || item["Email Address"] || item["Mail ID"];
+      if (!email) continue;
+
+      const cleanEmail = String(email).toLowerCase().trim();
+      importedEmails.push(cleanEmail);
+
+      const name = item.name || item.Name || item["Full Name"] || item["Customer Name"] || "Excel Lead";
+      const phone = item.phone || item.Phone || item["Phone Number"] || item["Mobile"] || "";
+      const co = item.co || item["Care Of"] || item["c/o"] || item.Address || "";
+      const district = item.district || item.District || item.City || item.Location || "Tripura";
+      const sentiment = item.sentiment || item.Sentiment || item.Disposition || "Neutral";
+      const paymentStatus = item.paymentStatus || item["Payment Status"] || item.Payment || "Pending";
+      const paymentAmount = Number(item.paymentAmount || item["Payment Amount"] || item["Total Spent"] || item["Total Spent (INR)"] || item["Amount (INR)"] || 0);
+      const followUpCount = Number(item.followUpCount || item["Follow Up Count"] || item["Calls"] || 0);
+      const crmNotes = item.crmNotes || item["CRM Notes"] || item.Notes || item.Remarks || "";
+
+      let existing = await User.findOne({ email: cleanEmail });
+      if (existing) {
+        existing.name = name || existing.name;
+        existing.phone = phone || existing.phone;
+        existing.co = co || existing.co;
+        existing.district = district || existing.district;
+        existing.sentiment = sentiment || existing.sentiment;
+        existing.paymentStatus = paymentStatus || existing.paymentStatus;
+        existing.paymentAmount = paymentAmount >= 0 ? paymentAmount : existing.paymentAmount;
+        if (followUpCount >= 0) existing.followUpCount = followUpCount;
+        if (crmNotes) existing.crmNotes = crmNotes;
+        await existing.save();
+        updatedCount++;
+      } else {
+        await User.create({
+          name,
+          email: cleanEmail,
+          phone,
+          co,
+          district,
+          country: "India",
+          sentiment,
+          paymentStatus,
+          paymentAmount,
+          followUpCount,
+          crmNotes,
+          followUpLogs: crmNotes ? [{ date: new Date(), note: crmNotes, adminName: "Excel Import", status: "Imported", sentiment, paymentStatus }] : []
+        });
+        createdCount++;
+      }
+    }
+
+    // Full Master Sync: Delete records from MongoDB that were removed from the Excel sheet
+    let deletedCount = 0;
+    if (syncMode === "full" && importedEmails.length > 0) {
+      const deleteRes = await User.deleteMany({
+        email: { $nin: importedEmails },
+        role: { $ne: "admin" } // Preserve core admin account from accidental deletion
+      });
+      deletedCount = deleteRes.deletedCount || 0;
+    }
+
+    const allUsers = await User.find().sort({ createdAt: -1 }).lean();
+    res.json({
+      success: true,
+      message: `Full Excel Sync Complete: ${createdCount} created, ${updatedCount} updated, ${deletedCount} deleted records removed from MongoDB.`,
+      createdCount,
+      updatedCount,
+      deletedCount,
+      users: allUsers
+    });
   })
 );
 

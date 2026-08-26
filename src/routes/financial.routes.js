@@ -25,7 +25,7 @@ const INITIAL_INCOME_RECORDS = [
     courierName: "SpeedPost",
     discount: 0,
     totalAmount: 9100,
-    billLink: "https://www.lekhoktripura.in/"
+    billLink: ""
   },
   {
     slNo: 2,
@@ -47,7 +47,7 @@ const INITIAL_INCOME_RECORDS = [
     courierName: "Email Delivery",
     discount: 200,
     totalAmount: 3340,
-    billLink: "https://www.lekhoktripura.in/"
+    billLink: ""
   },
   {
     slNo: 3,
@@ -69,7 +69,7 @@ const INITIAL_INCOME_RECORDS = [
     courierName: "Local Van",
     discount: 500,
     totalAmount: 14160,
-    billLink: "https://www.lekhoktripura.in/"
+    billLink: ""
   },
   {
     slNo: 4,
@@ -91,7 +91,7 @@ const INITIAL_INCOME_RECORDS = [
     courierName: "BlueDart",
     discount: 0,
     totalAmount: 935,
-    billLink: "https://www.lekhoktripura.in/"
+    billLink: ""
   },
   {
     slNo: 5,
@@ -113,7 +113,7 @@ const INITIAL_INCOME_RECORDS = [
     courierName: "Local Delivery",
     discount: 0,
     totalAmount: 512,
-    billLink: "https://www.lekhoktripura.in/"
+    billLink: ""
   }
 ];
 

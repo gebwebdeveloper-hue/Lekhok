@@ -21,7 +21,7 @@ const invoiceSchema = new mongoose.Schema(
     courierName: { type: String, default: "Courier" },
     discount: { type: Number, default: 0 },
     totalAmount: { type: Number, default: 0 },
-    billLink: { type: String, default: "/admin/invoices" },
+    billLink: { type: String, default: "" },
     fullForm: { type: mongoose.Schema.Types.Mixed }
   },
   {

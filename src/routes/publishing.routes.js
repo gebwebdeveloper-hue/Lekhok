@@ -135,7 +135,15 @@ function getPlanPricing(planName, addons = [], isClubMember = false) {
   const gst = subtotal * 0.18;
   const total = subtotal + gst;
 
-  return { name, base, rawBase, isClubMember, addonsTotal, subtotal, gst, total };
+  const hasRegistrationFee = !norm.includes("starter");
+  const regBase = 1000;
+  const regGst = Math.round(regBase * 0.18 * 100) / 100;
+  const regTotal = regBase + regGst; // 1180.00
+  const registrationFee = hasRegistrationFee ? regTotal : total;
+  const remainingBase = hasRegistrationFee ? Math.max(0, base - regBase) : 0;
+  const remainingToPayLater = hasRegistrationFee ? Math.max(0, base - regBase + addonsTotal) : 0;
+
+  return { name, base, rawBase, isClubMember, addonsTotal, subtotal, gst, total, hasRegistrationFee, regBase, regGst, regTotal, registrationFee, remainingBase, remainingToPayLater };
 }
 
 router.post("/create-order", async (req, res, next) => {
@@ -148,7 +156,8 @@ router.post("/create-order", async (req, res, next) => {
     }
 
     const pricing = getPlanPricing(planName, addons, !!isClubMember);
-    const amountInPaise = Math.round(pricing.total * 100);
+    const chargeAmount = pricing.hasRegistrationFee ? pricing.regTotal : pricing.total;
+    const amountInPaise = Math.round(chargeAmount * 100);
     const receipt = `pub_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
 
     const instance = new Razorpay({ key_id: keyId, key_secret: keySecret });
@@ -161,6 +170,9 @@ router.post("/create-order", async (req, res, next) => {
         userEmail: email || "",
         userName: name || "",
         userPhone: phone || "",
+        registrationFeePaid: pricing.hasRegistrationFee ? pricing.regTotal : pricing.total,
+        remainingBalanceDue: pricing.remainingToPayLater,
+        purpose: pricing.hasRegistrationFee ? "Plan Registration Fee (₹1,000 + 18% GST = ₹1,180)" : "Plan Full Payment",
         addonsCount: Array.isArray(addons) ? addons.length : 0
       }
     });

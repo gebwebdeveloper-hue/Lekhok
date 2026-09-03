@@ -438,6 +438,9 @@ export async function sendSelfPublishingPlanEmail(application) {
       <p style="color:#a1a1aa;margin:0 0 24px">An author selected a paid self publishing plan.</p>
       <table style="width:100%;border-collapse:collapse;background:#0d0d0d;border:1px solid #1f2937;border-radius:14px;overflow:hidden">
         ${detailRow("Selected Plan", application.planName)}
+        ${detailRow("Payment Transaction ID", application.paymentId || "N/A")}
+        ${detailRow("Registration Fee Paid", application.paymentId ? "₹1,180.00 (₹1,000 + 18% GST - Plan Unlocked)" : "Pending")}
+        ${detailRow("Remaining Balance (Pay Later)", application.planName?.toLowerCase().includes("essential") ? "₹8,999.00" : (application.planName?.toLowerCase().includes("popular") ? "₹13,999.00" : (application.planName?.toLowerCase().includes("starter") ? "₹0.00" : "₹3,999.00")))}
         ${detailRow("Name", application.name)}
         ${detailRow("Phone", application.phone)}
         ${detailRow("Email", application.email)}
@@ -513,13 +516,14 @@ export async function sendSelfPublishingUserConfirmationEmail(application) {
   if (!recipient) return { skipped: true };
 
   const planPrices = {
-    basic: { base: 4999, gst: 899.82, total: 5898.82, name: "Basic Publishing Plan" },
-    essential: { base: 7999, gst: 1439.82, total: 9438.82, name: "Essential Publishing Plan" },
-    popular: { base: 11999, gst: 2159.82, total: 14158.82, name: "Popular Publishing Plan" },
+    starter: { base: 999, remaining: 0, hasReg: false, name: "Starter Publishing Plan" },
+    basic: { base: 4999, remaining: 3999, hasReg: true, name: "Basic Publishing Plan" },
+    essential: { base: 9999, remaining: 8999, hasReg: true, name: "Essential Publishing Plan" },
+    popular: { base: 14999, remaining: 13999, hasReg: true, name: "Popular Publishing Plan" },
   };
 
   const norm = String(application.planName || "").toLowerCase();
-  const pricing = norm.includes("essential") ? planPrices.essential : (norm.includes("popular") ? planPrices.popular : planPrices.basic);
+  const pricing = norm.includes("essential") ? planPrices.essential : (norm.includes("popular") ? planPrices.popular : (norm.includes("starter") ? planPrices.starter : planPrices.basic));
 
   const subject = `Registration Received - Self Publishing Plan (${application.bookTitle || 'Book Submission'}) - Lekhok Tripura`;
 
@@ -535,9 +539,15 @@ export async function sendSelfPublishingUserConfirmationEmail(application) {
         <p style="color:#cbd5e1;font-size:14px;line-height:1.6;margin:0 0 16px">
           Thank you for registering your book <strong>"${escapeHtml(application.bookTitle || 'Your Book')}"</strong> with <strong>Lekhok Tripura Publishers</strong>!
         </p>
+        ${pricing.hasReg ? `
         <p style="color:#cbd5e1;font-size:14px;line-height:1.6;margin:0">
-          Your payment of <strong>₹${pricing.total.toFixed(2)}</strong> (Base ₹${pricing.base.toFixed(2)} + 18% GST ₹${pricing.gst.toFixed(2)}) has been verified. Your <strong>BOOK SKU No.</strong> will be assigned and shared with you shortly after manuscript verification.
+          Your Registration Fee payment of <strong>₹1,180.00</strong> (₹1,000 Registration Fee + 18% GST) has been verified and your <strong>${pricing.name}</strong> is now officially unlocked! You can pay the rest later (Remaining: <strong>₹${pricing.remaining.toLocaleString("en-IN")}.00</strong>) before final book printing and publication.
         </p>
+        ` : `
+        <p style="color:#cbd5e1;font-size:14px;line-height:1.6;margin:0">
+          Your payment of <strong>₹${pricing.base.toFixed(2)}</strong> has been verified. Your <strong>BOOK SKU No.</strong> will be assigned and shared with you shortly after manuscript verification.
+        </p>
+        `}
       </div>
 
       <!-- Registration Summary Table -->
@@ -545,10 +555,14 @@ export async function sendSelfPublishingUserConfirmationEmail(application) {
         <h3 style="font-size:14px;color:#ffffff;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 14px;border-bottom:1px solid #1e293b;padding-bottom:8px">Payment &amp; Registration Details</h3>
         <table style="width:100%;font-size:13px;color:#cbd5e1;border-collapse:collapse">
           <tr><td style="padding:6px 0;color:#94a3b8">Publishing Plan:</td><td style="padding:6px 0;text-align:right;font-weight:bold;color:#38bdf8">${escapeHtml(application.planName || pricing.name)}</td></tr>
-          <tr><td style="padding:6px 0;color:#94a3b8">Plan Base Fee:</td><td style="padding:6px 0;text-align:right;color:#ffffff">₹${pricing.base.toFixed(2)}</td></tr>
-          <tr><td style="padding:6px 0;color:#94a3b8">GST (18%):</td><td style="padding:6px 0;text-align:right;color:#ffffff">₹${pricing.gst.toFixed(2)}</td></tr>
-          <tr style="border-top:1px solid #334155"><td style="padding:8px 0;font-weight:bold;color:#ffffff">Total Amount Paid:</td><td style="padding:8px 0;text-align:right;font-weight:bold;font-size:15px;color:#34d399">₹${pricing.total.toFixed(2)}</td></tr>
-          ${application.paymentId ? `<tr><td style="padding:6px 0;color:#94a3b8">Transaction ID:</td><td style="padding:6px 0;text-align:right;font-family:monospace;color:#38bdf8">${escapeHtml(application.paymentId)}</td></tr>` : ''}
+          <tr><td style="padding:6px 0;color:#94a3b8">Total Package Value:</td><td style="padding:6px 0;text-align:right;color:#ffffff">₹${pricing.base.toLocaleString("en-IN")}.00</td></tr>
+          ${pricing.hasReg ? `
+          <tr><td style="padding:6px 0;color:#94a3b8">Registration Fee Paid:</td><td style="padding:6px 0;text-align:right;font-weight:bold;color:#34d399">₹1,180.00 (₹1,000 + 18% GST - Plan Unlocked)</td></tr>
+          <tr><td style="padding:6px 0;color:#94a3b8">Remaining Balance (Pay Later):</td><td style="padding:6px 0;text-align:right;font-weight:bold;color:#f59e0b">₹${pricing.remaining.toLocaleString("en-IN")}.00</td></tr>
+          ` : `
+          <tr><td style="padding:6px 0;color:#94a3b8">Total Amount Paid:</td><td style="padding:6px 0;text-align:right;font-weight:bold;color:#34d399">₹${pricing.base.toLocaleString("en-IN")}.00</td></tr>
+          `}
+          ${application.paymentId ? `<tr><td style="padding:6px 0;color:#94a3b8">Payment Transaction ID:</td><td style="padding:6px 0;text-align:right;font-family:monospace;color:#38bdf8">${escapeHtml(application.paymentId)}</td></tr>` : ''}
           ${application.bookTitle ? `<tr><td style="padding:6px 0;color:#94a3b8">Book Title:</td><td style="padding:6px 0;text-align:right;font-weight:bold;color:#ffffff">${escapeHtml(application.bookTitle)}</td></tr>` : ''}
           ${application.authorName ? `<tr><td style="padding:6px 0;color:#94a3b8">Author Name (Cover):</td><td style="padding:6px 0;text-align:right;font-weight:bold;color:#ffffff">${escapeHtml(application.authorName)}</td></tr>` : ''}
           ${application.language ? `<tr><td style="padding:6px 0;color:#94a3b8">Language:</td><td style="padding:6px 0;text-align:right;color:#38bdf8">${escapeHtml(application.language)}</td></tr>` : ''}

@@ -88,6 +88,29 @@ function escapeHtml(str) {
     .replace(/'/g, "&#039;");
 }
 
+function getOptimizedBookCover(rawUrl, defaultLogo) {
+  if (!rawUrl) {
+    return { url: defaultLogo, width: 600, height: 800, type: "image/jpeg" };
+  }
+  let url = String(rawUrl).trim();
+  if (!url.startsWith("http")) {
+    const sUrl = (env.serverUrl || "").replace(/\/$/, "");
+    url = `${sUrl}${url.startsWith("/") ? "" : "/"}${url}`;
+  }
+
+  // Cloudinary on-the-fly transformation:
+  // WhatsApp strictly enforces a 300KB limit on og:image and requires JPEG format.
+  // This compresses 3.7MB PNG covers down to ~80KB high-definition JPEGs.
+  if (url.includes("res.cloudinary.com") && url.includes("/image/upload/")) {
+    url = url
+      .replace("/image/upload/", "/image/upload/w_600,h_800,c_fill,q_75,f_jpg/")
+      .replace(/\.[a-zA-Z0-9]+(?:\?.*)?$/, ".jpg");
+    return { url, width: 600, height: 800, type: "image/jpeg" };
+  }
+
+  return { url, width: 600, height: 800, type: "image/jpeg" };
+}
+
 export const getBookOgHtml = asyncHandler(async (req, res) => {
   const { slug } = req.params;
   const isObjectId = mongoose.Types.ObjectId.isValid(slug);
@@ -100,16 +123,17 @@ export const getBookOgHtml = asyncHandler(async (req, res) => {
     return res.redirect(302, `${clientUrl}/library`);
   }
 
-  // Resolve cover URL to an absolute URL for crawlers (WhatsApp, Facebook, Twitter)
-  let coverUrl = defaultLogo;
-  if (book.cover?.url) {
-    if (book.cover.url.startsWith("http")) {
-      coverUrl = book.cover.url;
-    } else {
-      const sUrl = (env.serverUrl || "").replace(/\/$/, "");
-      coverUrl = `${sUrl}${book.cover.url.startsWith("/") ? "" : "/"}${book.cover.url}`;
-    }
+  const bookUrl = `${clientUrl}/library?book=${book.slug || book._id}`;
+  const userAgent = (req.headers["user-agent"] || "").toLowerCase();
+  const isCrawler = /whatsapp|facebookexternalhit|twitterbot|telegrambot|slackbot|linkedinbot|discordbot|applebot|googlebot|bingbot|pinterest/i.test(userAgent);
+
+  // If a real human visits via standard browser, redirect immediately to the library page
+  if (!isCrawler && !req.query.preview && !req.query.bot) {
+    return res.redirect(302, bookUrl);
   }
+
+  // Resolve cover URL to an optimized, lightweight JPEG (<100KB) for WhatsApp & social scrapers
+  const coverData = getOptimizedBookCover(book.cover?.url, defaultLogo);
 
   const title = `${book.title} — by ${book.author} | Lekhok Tripura`;
   const rawDesc = book.description || "";
@@ -117,10 +141,9 @@ export const getBookOgHtml = asyncHandler(async (req, res) => {
   const description = cleanDesc
     ? (cleanDesc.length > 200 ? cleanDesc.slice(0, 197) + "..." : cleanDesc)
     : `Read "${book.title}" by ${book.author} on Lekhok Tripura — Tripura's premier digital literature platform.`;
-  const bookUrl = `${clientUrl}/library?book=${book.slug || book._id}`;
 
   const html = `<!doctype html>
-<html lang="en">
+<html lang="en" prefix="og: http://ogp.me/ns#">
 <head>
   <meta charset="UTF-8" />
   <title>${escapeHtml(title)}</title>
@@ -129,15 +152,19 @@ export const getBookOgHtml = asyncHandler(async (req, res) => {
   <meta name="title" content="${escapeHtml(title)}" />
   <meta name="description" content="${escapeHtml(description)}" />
   <link rel="canonical" href="${escapeHtml(bookUrl)}" />
+  <link rel="image_src" href="${escapeHtml(coverData.url)}" />
   
   <!-- Open Graph / WhatsApp / Facebook Preview Tags -->
-  <meta property="og:type" content="book" />
   <meta property="og:site_name" content="Lekhok Tripura" />
+  <meta property="og:type" content="book" />
   <meta property="og:url" content="${escapeHtml(bookUrl)}" />
   <meta property="og:title" content="${escapeHtml(title)}" />
   <meta property="og:description" content="${escapeHtml(description)}" />
-  <meta property="og:image" content="${escapeHtml(coverUrl)}" />
-  <meta property="og:image:secure_url" content="${escapeHtml(coverUrl)}" />
+  <meta property="og:image" content="${escapeHtml(coverData.url)}" />
+  <meta property="og:image:secure_url" content="${escapeHtml(coverData.url)}" />
+  <meta property="og:image:type" content="${escapeHtml(coverData.type)}" />
+  <meta property="og:image:width" content="${coverData.width}" />
+  <meta property="og:image:height" content="${coverData.height}" />
   <meta property="og:image:alt" content="${escapeHtml(book.title)}" />
   
   <!-- Twitter Card -->
@@ -145,16 +172,15 @@ export const getBookOgHtml = asyncHandler(async (req, res) => {
   <meta name="twitter:url" content="${escapeHtml(bookUrl)}" />
   <meta name="twitter:title" content="${escapeHtml(title)}" />
   <meta name="twitter:description" content="${escapeHtml(description)}" />
-  <meta name="twitter:image" content="${escapeHtml(coverUrl)}" />
+  <meta name="twitter:image" content="${escapeHtml(coverData.url)}" />
 
-  <!-- Immediate Redirect for Human Visitors -->
-  <meta http-equiv="refresh" content="0;url=${escapeHtml(bookUrl)}" />
   <script>
     window.location.replace(${JSON.stringify(bookUrl)});
   </script>
 </head>
 <body style="background:#09090b;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:1rem;text-align:center;">
   <div style="max-width:420px;border:1px solid rgba(255,255,255,0.12);padding:28px;border-radius:20px;background:#18181b;">
+    <img src="${escapeHtml(coverData.url)}" alt="${escapeHtml(book.title)}" style="max-width:140px;border-radius:8px;margin-bottom:16px;box-shadow:0 8px 24px rgba(0,0,0,0.5);" />
     <h2 style="margin:0 0 8px 0;font-size:20px;color:#ffffff;">${escapeHtml(book.title)}</h2>
     <p style="margin:0 0 16px 0;color:rgba(255,255,255,0.6);font-size:14px;">by ${escapeHtml(book.author)}</p>
     <p style="font-size:13px;color:rgba(255,255,255,0.45);margin-bottom:20px;">Opening book in Lekhok Tripura...</p>
@@ -164,7 +190,7 @@ export const getBookOgHtml = asyncHandler(async (req, res) => {
 </html>`;
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
-  res.setHeader("Cache-Control", "public, max-age=300, s-maxage=3600");
+  res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300");
   return res.send(html);
 });
 

@@ -3,6 +3,7 @@ import {
   createNewsletter,
   deleteNewsletter,
   getNewsletterBySlug,
+  getNewsletterOgHtml,
   listNewsletters,
   updateNewsletter,
   uploadInlineImage,
@@ -93,7 +94,8 @@ router.post("/razorpay/verify", verifyStoryRazorpayPayment);
 router.post("/access-request", validate(newsletterAccessRequestSchema), submitAccessRequest);
 router.get("/access-status", optionalAuth, checkAccessStatus);
 
-// Public single story reader endpoint
+// Public single story reader and Open Graph preview endpoints
+router.get("/:slug/og", getNewsletterOgHtml);
 router.get("/:slug", optionalAuth, getNewsletterBySlug);
 
 // Admin story access request endpoints

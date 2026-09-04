@@ -123,11 +123,14 @@ export const getBookOgHtml = asyncHandler(async (req, res) => {
     return res.redirect(302, `${clientUrl}/library`);
   }
 
-  const bookUrl = `${clientUrl}/library?book=${book.slug || book._id}`;
+  const isRentReq = req.path.includes("/rent") || req.query.from === "rent" || req.query.rent === "true" || (book.isRentalAvailable && book.isRentalOnly);
+  const bookUrl = isRentReq
+    ? `${clientUrl}/rentals?book=${book.slug || book._id}`
+    : `${clientUrl}/library?book=${book.slug || book._id}`;
   const userAgent = (req.headers["user-agent"] || "").toLowerCase();
   const isCrawler = /whatsapp|facebookexternalhit|twitterbot|telegrambot|slackbot|linkedinbot|discordbot|applebot|googlebot|bingbot|pinterest/i.test(userAgent);
 
-  // If a real human visits via standard browser, redirect immediately to the library page
+  // If a real human visits via standard browser, redirect immediately to the target page
   if (!isCrawler && !req.query.preview && !req.query.bot) {
     return res.redirect(302, bookUrl);
   }
@@ -135,12 +138,15 @@ export const getBookOgHtml = asyncHandler(async (req, res) => {
   // Resolve cover URL to an optimized, lightweight JPEG (<100KB) for WhatsApp & social scrapers
   const coverData = getOptimizedBookCover(book.cover?.url, defaultLogo);
 
-  const title = `${book.title} — by ${book.author} | Lekhok Tripura`;
+  const title = isRentReq
+    ? `${book.title} — by ${book.author} | Rent on Lekhok Tripura`
+    : `${book.title} — by ${book.author} | Lekhok Tripura`;
   const rawDesc = book.description || "";
   const cleanDesc = rawDesc.replace(/<[^>]*>?/gm, "").replace(/\s+/g, " ").trim();
+  const rentalDetails = book.isRentalAvailable ? ` Available for rent at ₹${book.rentalPrice || 50} for ${book.rentalDurationDays || 15} days.` : "";
   const description = cleanDesc
-    ? (cleanDesc.length > 200 ? cleanDesc.slice(0, 197) + "..." : cleanDesc)
-    : `Read "${book.title}" by ${book.author} on Lekhok Tripura — Tripura's premier digital literature platform.`;
+    ? (cleanDesc.length > 180 ? cleanDesc.slice(0, 177) + "..." : cleanDesc) + (isRentReq ? rentalDetails : "")
+    : `Read "${book.title}" by ${book.author} on Lekhok Tripura — Tripura's premier digital literature platform.${rentalDetails}`;
 
   const html = `<!doctype html>
 <html lang="en" prefix="og: http://ogp.me/ns#">

@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   listNews,
   getNewsBySlug,
+  getNewsOgHtml,
   createNews,
   updateNews,
   deleteNews,
@@ -16,6 +17,7 @@ const newsUpload = upload.single("coverImage");
 
 // Public endpoints
 router.get("/", listNews);
+router.get("/:slug/og", getNewsOgHtml);
 router.get("/:slug", getNewsBySlug);
 
 // Admin category management endpoints (MUST be defined before /:id)

@@ -37,10 +37,9 @@ const __dirname = path.dirname(__filename);
 const app = express();
 
 app.set("trust proxy", 1);
-const allowedOrigins = (env.clientUrl || "")
-  .split(",")
-  .map((o) => o.trim())
-  .filter(Boolean);
+const allowedOrigins = env.allowedOrigins && env.allowedOrigins.length > 0 
+  ? env.allowedOrigins 
+  : [(env.clientUrl || "https://www.lekhoktripura.in")];
 
 app.use(
   helmet({

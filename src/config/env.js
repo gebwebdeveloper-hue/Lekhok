@@ -18,10 +18,21 @@ if (missing.length && process.env.NODE_ENV === "production") {
 
 const smtpConfigured = Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
 
+const rawClientUrl = process.env.CLIENT_URL || "https://www.lekhoktripura.in";
+const parsedOrigins = rawClientUrl
+  .split(",")
+  .map((o) => o.trim().replace(/\/$/, ""))
+  .filter(Boolean);
+const primaryClientUrl =
+  parsedOrigins.find((o) => o.includes("www.lekhoktripura.in")) ||
+  parsedOrigins[0] ||
+  "https://www.lekhoktripura.in";
+
 export const env = {
   port: Number(process.env.PORT || 5000),
   nodeEnv: process.env.NODE_ENV || "development",
-  clientUrl: process.env.CLIENT_URL || "https://www.lekhoktripura.in",
+  clientUrl: primaryClientUrl,
+  allowedOrigins: parsedOrigins.length > 0 ? parsedOrigins : [primaryClientUrl],
   serverUrl: process.env.SERVER_URL || (process.env.NODE_ENV === "production" ? "https://lekhok.onrender.com" : "http://localhost:5000"),
   mongoUri: process.env.MONGODB_URI || "mongodb+srv://lekhoktripurawebsite_db_user:Kiran123456%40@cluster0.mnjq8yg.mongodb.net/?appName=Cluster0",
   authorMongoUri: process.env.AUTHOR_MONGODB_URI || "mongodb+srv://helpdesklekhoktripura_db_user:TJBB725Inf0BzlIz@cluster0.tdtnjla.mongodb.net/?appName=Cluster0",

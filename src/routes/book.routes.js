@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createBook, deleteBook, getBookBySlug, listBooks, updateBook, streamBookPreview } from "../controllers/book.controller.js";
+import { createBook, deleteBook, getBookBySlug, getBookOgHtml, listBooks, updateBook, streamBookPreview } from "../controllers/book.controller.js";
 import { requireAuth, requireRole } from "../middlewares/auth.middleware.js";
 import { bookUpload } from "../middlewares/upload.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
@@ -9,6 +9,7 @@ const router = Router();
 
 router.get("/", listBooks);
 router.get("/:id/preview-stream", requireAuth, validate(idParamSchema), streamBookPreview);
+router.get("/:slug/og", getBookOgHtml);
 router.get("/:slug", getBookBySlug);
 router.post("/", requireAuth, requireRole("admin"), bookUpload, validate(bookCreateSchema), createBook);
 router.put("/:id", requireAuth, requireRole("admin"), bookUpload, validate(bookUpdateSchema), updateBook);

@@ -4,6 +4,7 @@ import http from "http";
 import https from "https";
 import slugify from "slugify";
 import mongoose from "mongoose";
+import { env } from "../config/env.js";
 import { Book } from "../models/Book.js";
 import { cloudinary } from "../config/cloudinary.js";
 
@@ -75,6 +76,96 @@ export const getBookBySlug = asyncHandler(async (req, res) => {
   }
 
   res.json({ success: true, book, access });
+});
+
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+export const getBookOgHtml = asyncHandler(async (req, res) => {
+  const { slug } = req.params;
+  const isObjectId = mongoose.Types.ObjectId.isValid(slug);
+  const book = await Book.findOne(isObjectId ? { $or: [{ slug }, { _id: slug }] } : { slug });
+
+  const clientUrl = (env.clientUrl || "https://www.lekhoktripura.in").replace(/\/$/, "");
+  const defaultLogo = `${clientUrl}/Web.jpeg`;
+
+  if (!book) {
+    return res.redirect(302, `${clientUrl}/library`);
+  }
+
+  // Resolve cover URL to an absolute URL for crawlers (WhatsApp, Facebook, Twitter)
+  let coverUrl = defaultLogo;
+  if (book.cover?.url) {
+    if (book.cover.url.startsWith("http")) {
+      coverUrl = book.cover.url;
+    } else {
+      const sUrl = (env.serverUrl || "").replace(/\/$/, "");
+      coverUrl = `${sUrl}${book.cover.url.startsWith("/") ? "" : "/"}${book.cover.url}`;
+    }
+  }
+
+  const title = `${book.title} — by ${book.author} | Lekhok Tripura`;
+  const rawDesc = book.description || "";
+  const cleanDesc = rawDesc.replace(/<[^>]*>?/gm, "").replace(/\s+/g, " ").trim();
+  const description = cleanDesc
+    ? (cleanDesc.length > 200 ? cleanDesc.slice(0, 197) + "..." : cleanDesc)
+    : `Read "${book.title}" by ${book.author} on Lekhok Tripura — Tripura's premier digital literature platform.`;
+  const bookUrl = `${clientUrl}/library?book=${book.slug || book._id}`;
+
+  const html = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>${escapeHtml(title)}</title>
+  
+  <!-- Primary Meta Tags -->
+  <meta name="title" content="${escapeHtml(title)}" />
+  <meta name="description" content="${escapeHtml(description)}" />
+  <link rel="canonical" href="${escapeHtml(bookUrl)}" />
+  
+  <!-- Open Graph / WhatsApp / Facebook Preview Tags -->
+  <meta property="og:type" content="book" />
+  <meta property="og:site_name" content="Lekhok Tripura" />
+  <meta property="og:url" content="${escapeHtml(bookUrl)}" />
+  <meta property="og:title" content="${escapeHtml(title)}" />
+  <meta property="og:description" content="${escapeHtml(description)}" />
+  <meta property="og:image" content="${escapeHtml(coverUrl)}" />
+  <meta property="og:image:secure_url" content="${escapeHtml(coverUrl)}" />
+  <meta property="og:image:alt" content="${escapeHtml(book.title)}" />
+  
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:url" content="${escapeHtml(bookUrl)}" />
+  <meta name="twitter:title" content="${escapeHtml(title)}" />
+  <meta name="twitter:description" content="${escapeHtml(description)}" />
+  <meta name="twitter:image" content="${escapeHtml(coverUrl)}" />
+
+  <!-- Immediate Redirect for Human Visitors -->
+  <meta http-equiv="refresh" content="0;url=${escapeHtml(bookUrl)}" />
+  <script>
+    window.location.replace(${JSON.stringify(bookUrl)});
+  </script>
+</head>
+<body style="background:#09090b;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:1rem;text-align:center;">
+  <div style="max-width:420px;border:1px solid rgba(255,255,255,0.12);padding:28px;border-radius:20px;background:#18181b;">
+    <h2 style="margin:0 0 8px 0;font-size:20px;color:#ffffff;">${escapeHtml(book.title)}</h2>
+    <p style="margin:0 0 16px 0;color:rgba(255,255,255,0.6);font-size:14px;">by ${escapeHtml(book.author)}</p>
+    <p style="font-size:13px;color:rgba(255,255,255,0.45);margin-bottom:20px;">Opening book in Lekhok Tripura...</p>
+    <a href="${escapeHtml(bookUrl)}" style="display:inline-block;background:#22d3ee;color:#000000;padding:10px 20px;border-radius:10px;text-decoration:none;font-weight:bold;font-size:13px;">Open Book</a>
+  </div>
+</body>
+</html>`;
+
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Cache-Control", "public, max-age=300, s-maxage=3600");
+  return res.send(html);
 });
 
 export const createBook = asyncHandler(async (req, res) => {

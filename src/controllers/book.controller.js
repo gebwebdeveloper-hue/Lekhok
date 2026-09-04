@@ -3,6 +3,7 @@ import { fileURLToPath } from "url";
 import http from "http";
 import https from "https";
 import slugify from "slugify";
+import mongoose from "mongoose";
 import { Book } from "../models/Book.js";
 import { cloudinary } from "../config/cloudinary.js";
 
@@ -63,7 +64,9 @@ export const listBooks = asyncHandler(async (req, res) => {
 });
 
 export const getBookBySlug = asyncHandler(async (req, res) => {
-  const book = await Book.findOne({ slug: req.params.slug });
+  const { slug } = req.params;
+  const isObjectId = mongoose.Types.ObjectId.isValid(slug);
+  const book = await Book.findOne(isObjectId ? { $or: [{ slug }, { _id: slug }] } : { slug });
   if (!book) throw new ApiError(404, "Book not found.");
 
   let access = false;

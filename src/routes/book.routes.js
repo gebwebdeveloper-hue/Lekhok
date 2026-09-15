@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createBook, deleteBook, getBookBySlug, getBookOgHtml, listBooks, updateBook, streamBookPreview } from "../controllers/book.controller.js";
+import { createBook, deleteBook, getBookBySlug, getBookOgHtml, listBooks, updateBook, updateBookPreviewLinks, streamBookPreview } from "../controllers/book.controller.js";
 import { requireAuth, requireRole } from "../middlewares/auth.middleware.js";
 import { bookUpload } from "../middlewares/upload.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
@@ -13,6 +13,8 @@ router.get("/:slug/og", getBookOgHtml);
 router.get("/:slug", getBookBySlug);
 router.post("/", requireAuth, requireRole("admin"), bookUpload, validate(bookCreateSchema), createBook);
 router.put("/:id", requireAuth, requireRole("admin"), bookUpload, validate(bookUpdateSchema), updateBook);
+router.patch("/:id/preview-links", updateBookPreviewLinks);
+router.put("/:id/preview-links", updateBookPreviewLinks);
 router.delete("/:id", requireAuth, requireRole("admin"), validate(idParamSchema), deleteBook);
 
 export default router;

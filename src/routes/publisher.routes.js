@@ -9,10 +9,15 @@ import {
   getAuthorMyStats,
   createAuthorByAdmin,
   addSaleTransaction,
+  updateSaleTransaction,
+  deleteSaleTransaction,
   updateAuthorWorkflow,
   updateAuthorFullExecutionDetails,
-  requestReprint
+  requestReprint,
+  deleteAuthorByPublisher,
+  updateAuthorProfileDetails
 } from "../controllers/publisher.controller.js";
+import { updateBookPreviewLinks } from "../controllers/book.controller.js";
 
 const router = Router();
 
@@ -37,9 +42,18 @@ router.post("/author-login", authorLogin);
 // Publisher Protected routes
 router.get("/overview", authenticatePortalToken, getPublisherOverview);
 router.post("/authors", authenticatePortalToken, createAuthorByAdmin);
+router.put("/authors/:id", authenticatePortalToken, updateAuthorProfileDetails);
+router.patch("/authors/:id", authenticatePortalToken, updateAuthorProfileDetails);
+router.delete("/authors/:id", authenticatePortalToken, deleteAuthorByPublisher);
 router.patch("/authors/:id/workflow", authenticatePortalToken, updateAuthorWorkflow);
 router.patch("/authors/:id/full-workflow", authenticatePortalToken, updateAuthorFullExecutionDetails);
 router.post("/sales", authenticatePortalToken, addSaleTransaction);
+router.put("/sales/:id", authenticatePortalToken, updateSaleTransaction);
+router.patch("/sales/:id", authenticatePortalToken, updateSaleTransaction);
+router.delete("/sales/:id", authenticatePortalToken, deleteSaleTransaction);
+router.patch("/books/:id/preview-links", authenticatePortalToken, updateBookPreviewLinks);
+router.put("/books/:id/preview-links", authenticatePortalToken, updateBookPreviewLinks);
+
 
 // Author Protected routes
 router.get("/author/my-stats", authenticatePortalToken, getAuthorMyStats);

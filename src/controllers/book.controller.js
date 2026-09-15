@@ -24,6 +24,17 @@ function parseTags(tags) {
   return String(tags).split(",").map((tag) => tag.trim().toLowerCase()).filter(Boolean);
 }
 
+function parsePreviewLinks(links) {
+  if (!links) return [];
+  if (Array.isArray(links)) return links;
+  try {
+    const parsed = typeof links === "string" ? JSON.parse(links) : links;
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 async function uniqueSlug(title, currentId = null) {
   const base = slugify(title, { lower: true, strict: true, trim: true });
   let slug = base;
@@ -51,7 +62,13 @@ export const listBooks = asyncHandler(async (req, res) => {
   if (featured !== undefined) filter.featured = featured === "true";
   if (trending !== undefined) filter.trending = trending === "true";
   if (ourPublication !== undefined) filter.ourPublication = ourPublication === "true";
-  if (author) filter.author = { $regex: new RegExp(`^${author.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") };
+  if (author) {
+    const rawAuthor = decodeURIComponent(author).trim();
+    const normalizedAuthor = rawAuthor.replace(/[-_]/g, " ").trim();
+    const esc1 = rawAuthor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const esc2 = normalizedAuthor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    filter.author = { $regex: new RegExp(`^(${esc1}|${esc2})$`, "i") };
+  }
   if (q) filter.$text = { $search: q };
 
   const pageNumber = Math.max(Number(page), 1);
@@ -234,6 +251,7 @@ export const createBook = asyncHandler(async (req, res) => {
     rentalPrice: body.rentalPrice ? Number(body.rentalPrice) : 50,
     rentalDurationDays: body.rentalDurationDays ? Number(body.rentalDurationDays) : 15,
     finePerDay: body.finePerDay ? Number(body.finePerDay) : 5,
+    previewLinks: parsePreviewLinks(body.previewLinks),
     publishedAt: body.publishedAt ? new Date(body.publishedAt) : new Date(),
     createdBy: req.user._id
   });
@@ -270,6 +288,7 @@ export const updateBook = asyncHandler(async (req, res) => {
   if (body.comingSoon !== undefined) updates.comingSoon = body.comingSoon === "true" || body.comingSoon === true;
   if (body.listenInYoutube !== undefined) updates.listenInYoutube = body.listenInYoutube === "true" || body.listenInYoutube === true;
   if (body.youtubeLink !== undefined) updates.youtubeLink = body.youtubeLink;
+  if (body.previewLinks !== undefined) updates.previewLinks = parsePreviewLinks(body.previewLinks);
   if (body.isRentalAvailable !== undefined) updates.isRentalAvailable = body.isRentalAvailable === "true" || body.isRentalAvailable === true;
   if (body.rentalPrice !== undefined) updates.rentalPrice = Number(body.rentalPrice);
   if (body.rentalDurationDays !== undefined) updates.rentalDurationDays = Number(body.rentalDurationDays);
@@ -287,6 +306,18 @@ export const updateBook = asyncHandler(async (req, res) => {
 
   const updated = await Book.findByIdAndUpdate(book._id, updates, { new: true, runValidators: true });
   res.json({ success: true, book: updated });
+});
+
+export const updateBookPreviewLinks = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { previewLinks } = req.body;
+  const isObjectId = mongoose.Types.ObjectId.isValid(id);
+  const book = await Book.findOne(isObjectId ? { $or: [{ _id: id }, { slug: id }] } : { slug: id });
+  if (!book) throw new ApiError(404, "Book not found.");
+
+  book.previewLinks = parsePreviewLinks(previewLinks);
+  await book.save();
+  res.json({ success: true, book, message: "Preview links updated successfully." });
 });
 
 export const deleteBook = asyncHandler(async (req, res) => {

@@ -28,6 +28,13 @@ const bookSchema = new mongoose.Schema(
     previewImages: [assetSchema],
     previewPdf: assetSchema,
     pdf: assetSchema,
+    previewLinks: [
+      {
+        platform: { type: String, trim: true, default: "website" },
+        title: { type: String, trim: true, default: "" },
+        url: { type: String, trim: true, default: "" }
+      }
+    ],
     tags: [{ type: String, trim: true, lowercase: true }],
     featured: { type: Boolean, default: false, index: true },
     trending: { type: Boolean, default: false, index: true },

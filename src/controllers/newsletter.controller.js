@@ -187,10 +187,10 @@ export const getNewsletterOgHtml = asyncHandler(async (req, res) => {
   const defaultLogo = `${clientUrl}/Web.jpeg`;
 
   if (!newsletter) {
-    return res.redirect(302, `${clientUrl}/short-stories`);
+    return res.redirect(302, `${clientUrl}/read-stories`);
   }
 
-  const storyUrl = `${clientUrl}/short-stories/${newsletter.slug || newsletter._id}`;
+  const storyUrl = `${clientUrl}/read-stories/${newsletter.slug || newsletter._id}`;
   const userAgent = (req.headers["user-agent"] || "").toLowerCase();
   const isCrawler = /whatsapp|facebookexternalhit|twitterbot|telegrambot|slackbot|linkedinbot|discordbot|applebot|googlebot|bingbot|pinterest/i.test(userAgent);
 

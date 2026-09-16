@@ -4,8 +4,9 @@ import { env } from "../config/env.js";
 import { User } from "../models/User.js";
 import { AuthorPortalUser } from "../models/AuthorPortalUser.js";
 import { AuthorSale } from "../models/AuthorSale.js";
+import { Author } from "../models/Author.js";
 import { ApiError } from "../middlewares/error.middleware.js";
-import { createOrUpdateAuthorFromForm } from "../utils/authorAuth.js";
+import { createOrUpdateAuthorFromForm, generateAuthorPassword } from "../utils/authorAuth.js";
 
 function generateToken(payload) {
   return jwt.sign(payload, env.jwtSecret, { expiresIn: env.jwtExpiresIn });
@@ -167,8 +168,6 @@ export async function authorLogin(req, res, next) {
     next(error);
   }
 }
-
-import { Author } from "../models/Author.js";
 
 export async function getPublisherOverview(req, res, next) {
   try {

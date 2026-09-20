@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { env } from "../config/env.js";
@@ -267,7 +268,8 @@ export async function getPublisherOverview(req, res, next) {
         royaltyPaid: rPaid,
         royaltyPending: rPending,
         totalPending,
-        status: auth.publishingPaymentStatus
+        status: auth.publishingPaymentStatus,
+        workflowSteps: auth.workflowSteps || []
       };
     });
 
@@ -601,12 +603,27 @@ export async function updateAuthorWorkflow(req, res, next) {
     const { id } = req.params;
     const { workflowSteps, publishingPaymentStatus, amountPaid } = req.body;
 
-    const authorUser = await AuthorPortalUser.findById(id);
+    let authorUser = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      authorUser = await AuthorPortalUser.findById(id);
+    }
+    if (!authorUser) {
+      authorUser = await AuthorPortalUser.findOne({
+        $or: [{ authorId: id }, { email: id?.toLowerCase?.() }]
+      });
+    }
     if (!authorUser) throw new ApiError(404, "Author not found.");
 
     if (Array.isArray(workflowSteps)) {
-      authorUser.workflowSteps = workflowSteps;
+      authorUser.workflowSteps = workflowSteps.map((step) => ({
+        stepNumber: Number(step.stepNumber),
+        name: String(step.name || ""),
+        status: String(step.status || "PENDING").toUpperCase(),
+        value: String(step.value || "")
+      }));
+      authorUser.markModified("workflowSteps");
     }
+
     if (publishingPaymentStatus) {
       authorUser.publishingPaymentStatus = publishingPaymentStatus;
     }
@@ -615,7 +632,7 @@ export async function updateAuthorWorkflow(req, res, next) {
     }
 
     await authorUser.save();
-    res.json({ success: true, author: authorUser });
+    res.json({ success: true, author: authorUser, message: "Workflow steps updated successfully." });
   } catch (error) {
     next(error);
   }

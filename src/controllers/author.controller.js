@@ -22,56 +22,8 @@ export const listAuthors = asyncHandler(async (_req, res) => {
 
 /** GET /api/authors/all — admin only, lists all authors regardless of featured */
 export const listAllAuthors = asyncHandler(async (_req, res) => {
-  const [authors, books, portalUsers] = await Promise.all([
-    Author.find().sort({ order: 1, createdAt: -1 }),
-    Book.find({}, "author"),
-    AuthorPortalUser.find()
-  ]);
-
-  const existingNames = new Set(authors.map((a) => (a.name || "").toLowerCase().trim()));
-  const allAuthorsList = [...authors];
-
-  // Auto-discover authors from published books if not yet in Author collection
-  const bookAuthorNames = [...new Set(books.map((b) => (b.author || "").trim()).filter(Boolean))];
-  for (const bAuth of bookAuthorNames) {
-    if (!existingNames.has(bAuth.toLowerCase())) {
-      const portalMatch = portalUsers.find((p) => p.name?.toLowerCase().trim() === bAuth.toLowerCase());
-      try {
-        const createdAuth = await Author.create({
-          name: bAuth,
-          bio: portalMatch?.planDetails || `Published author on Lekhok Tripura platform.`,
-          featured: true,
-          ourPublicationAuthor: true,
-          order: 99
-        });
-        allAuthorsList.push(createdAuth);
-        existingNames.add(bAuth.toLowerCase());
-      } catch (err) {
-        console.error("Error auto-creating author doc:", err);
-      }
-    }
-  }
-
-  // Also include portal users
-  for (const pu of portalUsers) {
-    if (pu.name && !existingNames.has(pu.name.toLowerCase().trim())) {
-      try {
-        const createdAuth = await Author.create({
-          name: pu.name,
-          bio: pu.planDetails || "Registered Publication Author",
-          featured: false,
-          ourPublicationAuthor: true,
-          order: 99
-        });
-        allAuthorsList.push(createdAuth);
-        existingNames.add(pu.name.toLowerCase().trim());
-      } catch (err) {
-        console.error("Error auto-creating portal author doc:", err);
-      }
-    }
-  }
-
-  res.json({ success: true, authors: allAuthorsList });
+  const authors = await Author.find().sort({ order: 1, createdAt: -1 });
+  res.json({ success: true, authors });
 });
 
 import { createOrUpdateAuthorFromForm } from "../utils/authorAuth.js";
@@ -91,17 +43,19 @@ export const createAuthor = asyncHandler(async (req, res) => {
     order: order !== undefined ? Number(order) : 0
   });
 
-  // Auto-sync into AuthorPortalUser
-  try {
-    const authorEmail = email || `${name.toLowerCase().replace(/[^a-z0-9]+/g, "")}@lekhoktripura.in`;
-    await createOrUpdateAuthorFromForm({
-      name,
-      email: authorEmail,
-      phone: "9876543210",
-      planName: "Publication Author Plan"
-    });
-  } catch (syncErr) {
-    console.error("[AuthorSync] Error syncing author to portal:", syncErr);
+  // Auto-sync into AuthorPortalUser ONLY if publication author
+  if (isPubAuthor) {
+    try {
+      const authorEmail = email || `${name.toLowerCase().replace(/[^a-z0-9]+/g, "")}@lekhoktripura.in`;
+      await createOrUpdateAuthorFromForm({
+        name,
+        email: authorEmail,
+        phone: "9876543210",
+        planName: "Publication Author Plan"
+      });
+    } catch (syncErr) {
+      console.error("[AuthorSync] Error syncing author to portal:", syncErr);
+    }
   }
 
   res.status(201).json({ success: true, author });
@@ -123,17 +77,31 @@ export const updateAuthor = asyncHandler(async (req, res) => {
   }
   await author.save();
 
-  // Auto-sync into AuthorPortalUser
-  try {
-    const authorEmail = email || `${author.name.toLowerCase().replace(/[^a-z0-9]+/g, "")}@lekhoktripura.in`;
-    await createOrUpdateAuthorFromForm({
-      name: author.name,
-      email: authorEmail,
-      phone: "9876543210",
-      planName: "Publication Author Plan"
-    });
-  } catch (syncErr) {
-    console.error("[AuthorSync] Error syncing updated author to portal:", syncErr);
+  // Sync with AuthorPortalUser: keep if publication author, remove if toggled off
+  if (author.ourPublicationAuthor) {
+    try {
+      const authorEmail = email || `${author.name.toLowerCase().replace(/[^a-z0-9]+/g, "")}@lekhoktripura.in`;
+      await createOrUpdateAuthorFromForm({
+        name: author.name,
+        email: authorEmail,
+        phone: "9876543210",
+        planName: "Publication Author Plan"
+      });
+    } catch (syncErr) {
+      console.error("[AuthorSync] Error syncing updated author to portal:", syncErr);
+    }
+  } else {
+    try {
+      const fallbackEmail = `${author.name.toLowerCase().replace(/[^a-z0-9]+/g, "")}@lekhoktripura.in`;
+      await AuthorPortalUser.deleteMany({
+        $or: [
+          { name: new RegExp(`^${author.name.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
+          { email: fallbackEmail }
+        ]
+      });
+    } catch (syncErr) {
+      console.error("[AuthorSync] Error removing non-pub author from portal:", syncErr);
+    }
   }
 
   res.json({ success: true, author });

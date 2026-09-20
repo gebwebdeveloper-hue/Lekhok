@@ -172,47 +172,70 @@ export async function authorLogin(req, res, next) {
 
 export async function getPublisherOverview(req, res, next) {
   try {
-    // 1. Sync Main DB Authors (e.g. "Show in Publication's Authors") into AuthorPortalUser if not present
+    // 1. Sync Publication Authors only (ourPublicationAuthor: true) into AuthorPortalUser & cleanup non-publication authors
     try {
-      const mainAuthors = await Author.find({ ourPublicationAuthor: true });
+      const pubAuthors = await Author.find({ ourPublicationAuthor: true });
+      const pubAuthorNames = new Set(pubAuthors.map((a) => a.name.trim().toLowerCase()));
 
-      for (const mAuth of mainAuthors) {
-        if (!mAuth.name) continue;
+      for (const mAuth of pubAuthors) {
+        if (!mAuth.name || !mAuth.name.trim()) continue;
         const fallbackEmail = `${mAuth.name.toLowerCase().replace(/[^a-z0-9]+/g, "")}@lekhoktripura.in`;
-        
         let existingUser = await AuthorPortalUser.findOne({
-          $or: [{ name: mAuth.name }, { email: fallbackEmail }]
+          $or: [
+            { name: new RegExp(`^${mAuth.name.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
+            { email: fallbackEmail }
+          ]
         });
 
         if (!existingUser) {
-          const rawPassword = generateAuthorPassword(mAuth.name, "9876543210");
+          const rawPassword = generateAuthorPassword(mAuth.name.trim(), "9876543210");
           const passwordHash = await bcrypt.hash(rawPassword, 10);
 
           existingUser = new AuthorPortalUser({
             authorId: `a${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-            name: mAuth.name,
+            name: mAuth.name.trim(),
             email: fallbackEmail,
             phone: "9876543210",
             passwordHash,
             role: "author",
             selectedPlan: "Publication Author Plan",
-            planDetails: mAuth.bio || "Featured Publication Author",
+            planDetails: mAuth.bio || "Publication Author",
             publishingPaymentStatus: "PAID",
             amountPaid: 0,
             books: [{
-              title: `${mAuth.name} Books`,
+              title: `${mAuth.name.trim()} Books`,
               isbn: "—",
-              copiesPrinted: 100,
+              copiesPrinted: 50,
               copiesSold: 0,
-              currentStock: 100,
+              currentStock: 50,
               stockStatus: "IN STOCK"
             }]
           });
           await existingUser.save();
         }
       }
+
+      // 2. Real-time Cleanup: Delete any AuthorPortalUser who is NOT in publication authors and NOT an admin
+      const adminEmails = [
+        "admin@lekhoktripura.in",
+        "publisher@lekhoktripura.in",
+        "kiransamanta88@gmail.com",
+        ...(env.adminEmails || [])
+      ].map((e) => e.toLowerCase().trim());
+
+      const allPortalUsers = await AuthorPortalUser.find();
+      for (const pu of allPortalUsers) {
+        const puEmail = (pu.email || "").toLowerCase().trim();
+        const puName = (pu.name || "").toLowerCase().trim();
+        const isAdminAccount = adminEmails.includes(puEmail);
+        const isPubAuthor = pubAuthorNames.has(puName);
+
+        if (!isAdminAccount && !isPubAuthor) {
+          await AuthorPortalUser.findByIdAndDelete(pu._id);
+        }
+      }
     } catch (syncErr) {
-      console.error("[PublisherOverview] Error syncing main site authors:", syncErr);
+      console.error("[PublisherOverview] Error syncing publication authors:", syncErr);
     }
 
     const authors = await AuthorPortalUser.find().sort({ createdAt: -1 });
@@ -253,7 +276,10 @@ export async function getPublisherOverview(req, res, next) {
       const totalPending = planPending + rPending;
       totalPendingFees += totalPending;
 
+      const authObj = auth.toObject ? auth.toObject() : auth;
+
       return {
+        ...authObj,
         id: auth._id,
         authorId: auth.authorId,
         name: auth.name,
@@ -420,24 +446,95 @@ export async function getAuthorMyStats(req, res, next) {
     let mappedBooks = [];
     if (mainBooks.length > 0) {
       mappedBooks = mainBooks.map((b) => {
-        const bookSales = sales.filter((s) => s.bookTitle.toLowerCase() === b.title.toLowerCase());
+        const bookPortalMatch = (author.books || []).find(
+          (ab) => ab.title && ab.title.trim().toLowerCase() === b.title?.trim().toLowerCase()
+        );
+        const bookSales = sales.filter((s) => s.bookTitle && s.bookTitle.toLowerCase() === b.title?.toLowerCase());
         const copiesSold = bookSales.reduce((acc, s) => acc + (s.quantity || 0), 0);
-        const copiesPrinted = 50;
+        const copiesPrinted = bookPortalMatch?.copiesPrinted || author.totalCopiesPrinted || b.copiesPrinted || 50;
         const currentStock = Math.max(0, copiesPrinted - copiesSold);
+        const planAmt = bookPortalMatch?.planAmount !== undefined ? bookPortalMatch.planAmount : (author.planAmount !== undefined ? author.planAmount : 1212);
+        const amtPaid = bookPortalMatch?.amountPaid !== undefined ? bookPortalMatch.amountPaid : (author.amountPaid !== undefined ? author.amountPaid : 0);
+        const planPending = Math.max(0, planAmt - amtPaid);
+
         return {
           _id: b._id,
           title: b.title,
-          isbn: b.slug || "—",
+          slug: b.slug,
+          isbn: bookPortalMatch?.isbn || b.slug || b.isbn || author.isbnNo || "—",
+          pages: bookPortalMatch?.pageCount || b.pages || author.pageCount || 120,
+          category: b.category || "General",
+          description: b.description || "Official published title on Lekhok Tripura platform.",
+          language: b.language || "English",
           copiesPrinted,
           copiesSold,
           currentStock,
           stockStatus: currentStock < 10 ? "LOW STOCK" : "IN STOCK",
-          price: b.paperbackPrice || b.price || 0,
-          coverUrl: b.cover?.url || ""
+          price: b.paperbackPrice || b.price || 299,
+          paperbackPrice: b.paperbackPrice || b.price || 299,
+          ebookPrice: b.price || 0,
+          coverUrl: b.cover?.url || b.coverUrl || "",
+          planAmount: planAmt,
+          amountPaid: amtPaid,
+          planPending: planPending,
+          publishingPaymentStatus: bookPortalMatch?.publishingPaymentStatus || author.publishingPaymentStatus || (amtPaid >= planAmt && planAmt > 0 ? "PAID" : (amtPaid > 0 ? "PARTIAL" : "PENDING")),
+          paymentMethod: bookPortalMatch?.paymentMethod || author.paymentMethod || "UPI",
+          paymentDate: bookPortalMatch?.paymentDate || author.paymentDate || "",
+          transactionId: bookPortalMatch?.transactionId || author.transactionId || "",
+          invoiceUrl: bookPortalMatch?.invoiceUrl || author.invoiceUrl || "",
+          paymentNotes: bookPortalMatch?.paymentNotes || author.paymentNotes || "",
+          damagedCopies: bookPortalMatch?.damagedCopies !== undefined ? bookPortalMatch.damagedCopies : (author.damagedCopies || 0),
+          complimentaryCopies: bookPortalMatch?.complimentaryCopies !== undefined ? bookPortalMatch.complimentaryCopies : (author.complimentaryCopies || 5),
+          authorCopies: bookPortalMatch?.authorCopies !== undefined ? bookPortalMatch.authorCopies : (author.authorCopies || 10),
+          bookCoverStatus: bookPortalMatch?.bookCoverStatus || author.bookCoverStatus || "Pending",
+          bookFormattingStatus: bookPortalMatch?.bookFormattingStatus || author.bookFormattingStatus || "Pending",
+          bookReadyToPrintStatus: bookPortalMatch?.bookReadyToPrintStatus || author.bookReadyToPrintStatus || "Pending",
+          printingStatus: bookPortalMatch?.printingStatus || author.printingStatus || "Pending",
+          deliveryStatus: bookPortalMatch?.deliveryStatus || author.deliveryStatus || "Pending",
+          coverApproval: bookPortalMatch?.coverApproval || author.coverApproval || "Pending",
+          formattingApproval: bookPortalMatch?.formattingApproval || author.formattingApproval || "Pending",
+          finalProofApproval: bookPortalMatch?.finalProofApproval || author.finalProofApproval || "Pending",
+          courierPartner: bookPortalMatch?.courierPartner || author.courierPartner || "",
+          trackingNumber: bookPortalMatch?.trackingNumber || author.trackingNumber || "",
+          workflowSteps: bookPortalMatch?.workflowSteps?.length ? bookPortalMatch.workflowSteps : (author.workflowSteps || [])
         };
       });
     } else if (author.books && author.books.length > 0) {
-      mappedBooks = author.books;
+      mappedBooks = author.books.map((b) => {
+        const planAmt = b.planAmount !== undefined ? b.planAmount : (author.planAmount !== undefined ? author.planAmount : 1212);
+        const amtPaid = b.amountPaid !== undefined ? b.amountPaid : (author.amountPaid !== undefined ? author.amountPaid : 0);
+        const planPending = Math.max(0, planAmt - amtPaid);
+        return {
+          ...b.toObject ? b.toObject() : b,
+          pages: b.pageCount || b.pages || author.pageCount || 120,
+          category: b.category || "General",
+          description: b.description || "Official published title on Lekhok Tripura platform.",
+          language: b.language || "English",
+          planAmount: planAmt,
+          amountPaid: amtPaid,
+          planPending: planPending,
+          publishingPaymentStatus: b.publishingPaymentStatus || author.publishingPaymentStatus || (amtPaid >= planAmt && planAmt > 0 ? "PAID" : (amtPaid > 0 ? "PARTIAL" : "PENDING")),
+          paymentMethod: b.paymentMethod || author.paymentMethod || "UPI",
+          paymentDate: b.paymentDate || author.paymentDate || "",
+          transactionId: b.transactionId || author.transactionId || "",
+          invoiceUrl: b.invoiceUrl || author.invoiceUrl || "",
+          paymentNotes: b.paymentNotes || author.paymentNotes || "",
+          damagedCopies: b.damagedCopies !== undefined ? b.damagedCopies : (author.damagedCopies || 0),
+          complimentaryCopies: b.complimentaryCopies !== undefined ? b.complimentaryCopies : (author.complimentaryCopies || 5),
+          authorCopies: b.authorCopies !== undefined ? b.authorCopies : (author.authorCopies || 10),
+          bookCoverStatus: b.bookCoverStatus || author.bookCoverStatus || "Pending",
+          bookFormattingStatus: b.bookFormattingStatus || author.bookFormattingStatus || "Pending",
+          bookReadyToPrintStatus: b.bookReadyToPrintStatus || author.bookReadyToPrintStatus || "Pending",
+          printingStatus: b.printingStatus || author.printingStatus || "Pending",
+          deliveryStatus: b.deliveryStatus || author.deliveryStatus || "Pending",
+          coverApproval: b.coverApproval || author.coverApproval || "Pending",
+          formattingApproval: b.formattingApproval || author.formattingApproval || "Pending",
+          finalProofApproval: b.finalProofApproval || author.finalProofApproval || "Pending",
+          courierPartner: b.courierPartner || author.courierPartner || "",
+          trackingNumber: b.trackingNumber || author.trackingNumber || "",
+          workflowSteps: b.workflowSteps?.length ? b.workflowSteps : (author.workflowSteps || [])
+        };
+      });
     }
 
     const totalSold = sales.reduce((acc, s) => acc + (s.quantity || 0), 0);
@@ -450,13 +547,28 @@ export async function getAuthorMyStats(req, res, next) {
     authorObj.netAuthorProfit = totalProfit;
     authorObj.pendingAmount = Math.max(0, totalProfit - (authorObj.paidAmount || 0));
 
-    // If admin, also fetch author list for switching
+    // If admin, also fetch real-time publication author list for switching
     let allAuthors = [];
     if (isAdmin) {
-      allAuthors = await AuthorPortalUser.find()
+      const pubAuthors = await Author.find({ ourPublicationAuthor: true });
+      const pubAuthorNames = new Set(pubAuthors.map((a) => a.name.trim().toLowerCase()));
+      const adminEmails = [
+        "admin@lekhoktripura.in",
+        "publisher@lekhoktripura.in",
+        "kiransamanta88@gmail.com",
+        ...(env.adminEmails || [])
+      ].map((e) => e.toLowerCase().trim());
+
+      const rawUsers = await AuthorPortalUser.find()
         .select("name email authorId")
         .sort({ name: 1 })
         .lean();
+
+      allAuthors = rawUsers.filter((u) => {
+        const uEmail = (u.email || "").toLowerCase().trim();
+        const uName = (u.name || "").toLowerCase().trim();
+        return adminEmails.includes(uEmail) || pubAuthorNames.has(uName);
+      });
     }
 
     res.json({
@@ -641,11 +753,58 @@ export async function updateAuthorWorkflow(req, res, next) {
 export async function updateAuthorFullExecutionDetails(req, res, next) {
   try {
     const { id } = req.params;
-    const updateFields = req.body;
+    const { bookTitle, ...updateFields } = req.body;
 
     const authorUser = await AuthorPortalUser.findById(id);
     if (!authorUser) throw new ApiError(404, "Author not found.");
 
+    if (bookTitle && String(bookTitle).trim()) {
+      if (!authorUser.books) authorUser.books = [];
+      const titleClean = String(bookTitle).trim().toLowerCase();
+      let bookEntry = authorUser.books.find(
+        (b) => b.title && b.title.trim().toLowerCase() === titleClean
+      );
+
+      const bookSpecificData = {
+        title: String(bookTitle).trim(),
+        isbn: updateFields.isbnNo || updateFields.isbn || "",
+        copiesPrinted: updateFields.totalCopiesPrinted !== undefined ? Number(updateFields.totalCopiesPrinted) : 50,
+        damagedCopies: updateFields.damagedCopies !== undefined ? Number(updateFields.damagedCopies) : 0,
+        complimentaryCopies: updateFields.complimentaryCopies !== undefined ? Number(updateFields.complimentaryCopies) : 5,
+        authorCopies: updateFields.authorCopies !== undefined ? Number(updateFields.authorCopies) : 10,
+        pageCount: updateFields.pageCount !== undefined ? Number(updateFields.pageCount) : 120,
+        planAmount: updateFields.planAmount !== undefined ? Number(updateFields.planAmount) : 1212,
+        amountPaid: updateFields.amountPaid !== undefined ? Number(updateFields.amountPaid) : 0,
+        publishingPaymentStatus: updateFields.publishingPaymentStatus || "PENDING",
+        paymentMethod: updateFields.paymentMethod || "UPI",
+        paymentDate: updateFields.paymentDate || "",
+        transactionId: updateFields.transactionId || "",
+        invoiceUrl: updateFields.invoiceUrl || "",
+        paymentNotes: updateFields.paymentNotes || "",
+        bookCoverStatus: updateFields.bookCoverStatus || "Pending",
+        bookFormattingStatus: updateFields.bookFormattingStatus || "Pending",
+        bookReadyToPrintStatus: updateFields.bookReadyToPrintStatus || "Pending",
+        printingStatus: updateFields.printingStatus || "Pending",
+        deliveryStatus: updateFields.deliveryStatus || "Pending",
+        coverApproval: updateFields.coverApproval || "Pending",
+        formattingApproval: updateFields.formattingApproval || "Pending",
+        finalProofApproval: updateFields.finalProofApproval || "Pending",
+        courierPartner: updateFields.courierPartner || "",
+        trackingNumber: updateFields.trackingNumber || "",
+        dispatchDate: updateFields.dispatchDate || "",
+        expectedDeliveryDate: updateFields.expectedDeliveryDate || "",
+        workflowSteps: updateFields.workflowSteps || []
+      };
+
+      if (!bookEntry) {
+        authorUser.books.push(bookSpecificData);
+      } else {
+        Object.assign(bookEntry, bookSpecificData);
+      }
+      authorUser.markModified("books");
+    }
+
+    // Also update top-level authorUser default fields
     Object.assign(authorUser, updateFields);
 
     await authorUser.save();

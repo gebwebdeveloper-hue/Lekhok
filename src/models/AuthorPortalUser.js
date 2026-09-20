@@ -15,10 +15,39 @@ const authorBookSchema = new mongoose.Schema(
   {
     title: { type: String, required: true },
     isbn: { type: String, default: "" },
-    copiesPrinted: { type: Number, default: 0 },
+    copiesPrinted: { type: Number, default: 50 },
     copiesSold: { type: Number, default: 0 },
-    currentStock: { type: Number, default: 0 },
-    stockStatus: { type: String, enum: ["LOW STOCK", "IN STOCK", "OUT OF STOCK"], default: "LOW STOCK" },
+    currentStock: { type: Number, default: 50 },
+    stockStatus: { type: String, default: "IN STOCK" },
+
+    // Per-Book Payment & Financial Fields
+    planAmount: { type: Number, default: 1212 },
+    amountPaid: { type: Number, default: 0 },
+    publishingPaymentStatus: { type: String, default: "PENDING" },
+    paymentMethod: { type: String, default: "UPI" },
+    paymentDate: { type: String, default: "" },
+    transactionId: { type: String, default: "" },
+    invoiceUrl: { type: String, default: "" },
+    paymentNotes: { type: String, default: "" },
+
+    // Per-Book Specifications & Statuses
+    pageCount: { type: Number, default: 120 },
+    damagedCopies: { type: Number, default: 0 },
+    complimentaryCopies: { type: Number, default: 5 },
+    authorCopies: { type: Number, default: 10 },
+    bookCoverStatus: { type: String, default: "Pending" },
+    bookFormattingStatus: { type: String, default: "Pending" },
+    bookReadyToPrintStatus: { type: String, default: "Pending" },
+    printingStatus: { type: String, default: "Pending" },
+    deliveryStatus: { type: String, default: "Pending" },
+    coverApproval: { type: String, default: "Pending" },
+    formattingApproval: { type: String, default: "Pending" },
+    finalProofApproval: { type: String, default: "Pending" },
+    courierPartner: { type: String, default: "" },
+    trackingNumber: { type: String, default: "" },
+    dispatchDate: { type: String, default: "" },
+    expectedDeliveryDate: { type: String, default: "" },
+    workflowSteps: [workflowStepSchema]
   },
   { _id: true }
 );
@@ -52,12 +81,14 @@ const authorPortalUserSchema = new mongoose.Schema(
     role: { type: String, default: "author", index: true },
     selectedPlan: { type: String, default: "Basic Publishing Plan" },
     planDetails: { type: String, default: "Standard Book Publishing Package" },
-    publishingPaymentStatus: { type: String, enum: ["PENDING", "PAID", "Pending", "Paid"], default: "PENDING" },
+    publishingPaymentStatus: { type: String, enum: ["PENDING", "PAID", "PARTIAL", "Pending", "Paid", "Partial"], default: "PENDING" },
     invoiceUrl: { type: String, default: "" },
     planAmount: { type: Number, default: 0 },
     amountPaid: { type: Number, default: 0 },
     paymentMethod: { type: String, default: "UPI" },
     paymentDate: { type: String, default: "" },
+    transactionId: { type: String, default: "" },
+    paymentNotes: { type: String, default: "" },
 
     // Execution Specifications
     pageCount: { type: Number, default: 0 },

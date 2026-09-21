@@ -6,8 +6,10 @@ import { User } from "../models/User.js";
 import { AuthorPortalUser } from "../models/AuthorPortalUser.js";
 import { AuthorSale } from "../models/AuthorSale.js";
 import { Author } from "../models/Author.js";
+import { Book } from "../models/Book.js";
 import { ApiError } from "../middlewares/error.middleware.js";
 import { createOrUpdateAuthorFromForm, generateAuthorPassword } from "../utils/authorAuth.js";
+import { sendReprintRequestEmail } from "../services/authorMail.service.js";
 
 function generateToken(payload) {
   return jwt.sign(payload, env.jwtSecret, { expiresIn: env.jwtExpiresIn });
@@ -340,8 +342,6 @@ export async function getPublisherOverview(req, res, next) {
     next(error);
   }
 }
-
-import { Book } from "../models/Book.js";
 
 export async function getAuthorMyStats(req, res, next) {
   try {
@@ -713,7 +713,7 @@ export async function deleteSaleTransaction(req, res, next) {
 export async function updateAuthorWorkflow(req, res, next) {
   try {
     const { id } = req.params;
-    const { workflowSteps, publishingPaymentStatus, amountPaid } = req.body;
+    const { bookTitle, workflowSteps, publishingPaymentStatus, planAmount, amountPaid, isbnNo, pageCount } = req.body;
 
     let authorUser = null;
     if (mongoose.Types.ObjectId.isValid(id)) {
@@ -726,21 +726,129 @@ export async function updateAuthorWorkflow(req, res, next) {
     }
     if (!authorUser) throw new ApiError(404, "Author not found.");
 
+    let extractedIsbn = (isbnNo || "").trim();
+    let extractedPages = pageCount !== undefined && pageCount !== "" ? Number(pageCount) : undefined;
+    let formattedSteps = [];
+
     if (Array.isArray(workflowSteps)) {
-      authorUser.workflowSteps = workflowSteps.map((step) => ({
-        stepNumber: Number(step.stepNumber),
-        name: String(step.name || ""),
-        status: String(step.status || "PENDING").toUpperCase(),
-        value: String(step.value || "")
-      }));
+      formattedSteps = workflowSteps.map((step) => {
+        const stepNum = Number(step.stepNumber);
+        const val = String(step.value || "").trim();
+        if (stepNum === 2 && val) {
+          extractedIsbn = val;
+        }
+        if (stepNum === 3 && val) {
+          const numVal = Number(val);
+          if (!isNaN(numVal) && numVal > 0) {
+            extractedPages = numVal;
+          }
+        }
+        return {
+          stepNumber: stepNum,
+          name: String(step.name || ""),
+          status: String(step.status || "PENDING").toUpperCase(),
+          value: val
+        };
+      });
+      authorUser.workflowSteps = formattedSteps;
       authorUser.markModified("workflowSteps");
     }
 
     if (publishingPaymentStatus) {
       authorUser.publishingPaymentStatus = publishingPaymentStatus;
     }
+    if (typeof planAmount === "number") {
+      authorUser.planAmount = planAmount;
+    }
     if (typeof amountPaid === "number") {
       authorUser.amountPaid = amountPaid;
+    }
+
+    if (extractedPages !== undefined) {
+      authorUser.pageCount = extractedPages;
+      authorUser.pages = extractedPages;
+    }
+
+    if (extractedIsbn) {
+      authorUser.isbnNo = extractedIsbn;
+    }
+
+    // Per-Book Specific Record Update in authorUser.books
+    if (bookTitle && String(bookTitle).trim()) {
+      if (!authorUser.books) authorUser.books = [];
+      const cleanTitle = String(bookTitle).trim().toLowerCase();
+      let targetBook = authorUser.books.find(
+        (b) => b.title && b.title.trim().toLowerCase() === cleanTitle
+      );
+
+      if (!targetBook) {
+        targetBook = {
+          title: String(bookTitle).trim(),
+          isbn: extractedIsbn || "—",
+          pageCount: extractedPages !== undefined ? extractedPages : 120,
+          pages: extractedPages !== undefined ? extractedPages : 120,
+          planAmount: typeof planAmount === "number" ? planAmount : 1212,
+          amountPaid: typeof amountPaid === "number" ? amountPaid : 0,
+          publishingPaymentStatus: publishingPaymentStatus || "PENDING",
+          workflowSteps: formattedSteps,
+          copiesPrinted: 50,
+          copiesSold: 0,
+          currentStock: 50,
+          stockStatus: "IN STOCK"
+        };
+        authorUser.books.push(targetBook);
+      } else {
+        if (formattedSteps.length > 0) targetBook.workflowSteps = formattedSteps;
+        if (publishingPaymentStatus) targetBook.publishingPaymentStatus = publishingPaymentStatus;
+        if (typeof planAmount === "number") targetBook.planAmount = planAmount;
+        if (typeof amountPaid === "number") targetBook.amountPaid = amountPaid;
+        if (extractedIsbn) targetBook.isbn = extractedIsbn;
+        if (extractedPages !== undefined) {
+          targetBook.pageCount = extractedPages;
+          targetBook.pages = extractedPages;
+        }
+      }
+      authorUser.markModified("books");
+    } else if (authorUser.books && authorUser.books.length > 0) {
+      // If no book title specified, sync global attributes to existing books
+      authorUser.books.forEach((b) => {
+        if (formattedSteps.length > 0) b.workflowSteps = formattedSteps;
+        if (publishingPaymentStatus) b.publishingPaymentStatus = publishingPaymentStatus;
+        if (typeof planAmount === "number") b.planAmount = planAmount;
+        if (typeof amountPaid === "number") b.amountPaid = amountPaid;
+        if (extractedIsbn && (!b.isbn || b.isbn === "—")) b.isbn = extractedIsbn;
+        if (extractedPages !== undefined) {
+          b.pageCount = extractedPages;
+          b.pages = extractedPages;
+        }
+      });
+      authorUser.markModified("books");
+    }
+
+    // Sync ISBN and pageCount to general Book collection if matched by author name & book title
+    try {
+      if (authorUser.name) {
+        const nameRegex = new RegExp(`^${authorUser.name.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
+        const bookUpdate = {};
+        if (extractedIsbn) bookUpdate.isbn = extractedIsbn;
+        if (extractedPages !== undefined && extractedPages > 0) bookUpdate.pages = extractedPages;
+
+        const titleFilter = bookTitle && String(bookTitle).trim()
+          ? { title: new RegExp(`^${String(bookTitle).trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") }
+          : {};
+
+        if (Object.keys(bookUpdate).length > 0) {
+          await Book.updateMany(
+            {
+              $or: [{ author: nameRegex }, { authorName: nameRegex }],
+              ...titleFilter
+            },
+            { $set: bookUpdate }
+          );
+        }
+      }
+    } catch (bookErr) {
+      console.warn("[updateAuthorWorkflow] Error updating Book isbn/pages:", bookErr);
     }
 
     await authorUser.save();
@@ -813,8 +921,6 @@ export async function updateAuthorFullExecutionDetails(req, res, next) {
     next(error);
   }
 }
-
-import { sendReprintRequestEmail } from "../services/authorMail.service.js";
 
 export async function requestReprint(req, res, next) {
   try {

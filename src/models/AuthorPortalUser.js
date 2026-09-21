@@ -81,7 +81,7 @@ const authorPortalUserSchema = new mongoose.Schema(
     role: { type: String, default: "author", index: true },
     selectedPlan: { type: String, default: "Basic Publishing Plan" },
     planDetails: { type: String, default: "Standard Book Publishing Package" },
-    publishingPaymentStatus: { type: String, enum: ["PENDING", "PAID", "PARTIAL", "Pending", "Paid", "Partial"], default: "PENDING" },
+    publishingPaymentStatus: { type: String, default: "PENDING" },
     invoiceUrl: { type: String, default: "" },
     planAmount: { type: Number, default: 0 },
     amountPaid: { type: Number, default: 0 },
@@ -141,7 +141,7 @@ const authorPortalUserSchema = new mongoose.Schema(
     pendingAmount: { type: Number, default: 0 },
     netAuthorProfit: { type: Number, default: 0 },
     totalDeduction: { type: Number, default: 0 },
-    royaltyPaymentStatus: { type: String, enum: ["PENDING", "PAID", "Pending", "Paid"], default: "PENDING" }
+    royaltyPaymentStatus: { type: String, default: "PENDING" }
   },
   { timestamps: true }
 );

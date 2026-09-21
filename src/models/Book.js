@@ -24,6 +24,7 @@ const bookSchema = new mongoose.Schema(
     category: { type: String, required: true, trim: true, index: true },
     language: { type: String, default: "English", trim: true },
     pages: { type: Number, required: false, min: 0, default: 0 },
+    isbn: { type: String, trim: true, default: "" },
     cover: assetSchema,
     previewImages: [assetSchema],
     previewPdf: assetSchema,

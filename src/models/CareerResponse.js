@@ -49,6 +49,7 @@ const careerResponseSchema = new mongoose.Schema(
         "Book editor",
         "Accountant",
         "Designer role",
+        "Office assistant",
         "Other",
       ],
     },

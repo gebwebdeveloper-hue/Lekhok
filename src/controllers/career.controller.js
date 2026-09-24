@@ -75,7 +75,7 @@ export const submitCareerApplication = asyncHandler(async (req, res) => {
         console.warn("[Career Application] Failed to read resume file buffer:", readErr);
       }
     }
-    resumeFileObj = await persistUploadedFile(req.file, "resumes", "auto");
+    resumeFileObj = await persistUploadedFile(req.file, "resumes", "raw");
     finalResumeUrl = resumeFileObj?.url || "";
   }
 

@@ -18,10 +18,16 @@ export async function persistUploadedFile(file, folder = "misc", resourceType = 
 
   if (env.storageDriver === "cloudinary" && env.cloudinary.cloudName) {
     try {
-      const isPrivate = folder === "pdfs" || (folder === "previews" && resourceType === "raw");
+      const ext = path.extname(file.originalname || "").toLowerCase();
+      let resolvedResourceType = resourceType;
+      if (folder === "resumes" || folder === "pdfs" || ext === ".pdf" || file.mimetype === "application/pdf") {
+        resolvedResourceType = "raw";
+      }
+
+      const isPrivate = (folder === "pdfs" && resourceType !== "raw") || (folder === "previews" && resourceType === "raw");
       const result = await cloudinary.uploader.upload(file.path, {
         folder: `lekhak/${folder}`,
-        resource_type: resourceType,
+        resource_type: resolvedResourceType,
         timeout: 60000,
         ...(isPrivate ? { type: "authenticated" } : {})
       });

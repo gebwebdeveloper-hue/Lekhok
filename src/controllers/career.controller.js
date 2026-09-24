@@ -80,6 +80,7 @@ export const submitCareerApplication = asyncHandler(async (req, res) => {
   }
 
   const application = await CareerResponse.create({
+    user: req.user?._id || null,
     name: name.trim(),
     number: cleanNumber,
     email: email.trim().toLowerCase(),

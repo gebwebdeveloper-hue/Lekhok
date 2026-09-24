@@ -2,6 +2,11 @@ import mongoose from "mongoose";
 
 const careerResponseSchema = new mongoose.Schema(
   {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
     name: {
       type: String,
       required: [true, "Candidate Name is required"],

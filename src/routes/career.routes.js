@@ -11,8 +11,8 @@ import { uploadCareerResume } from "../middlewares/upload.middleware.js";
 
 const router = Router();
 
-// Public submission route
-router.post("/apply", uploadCareerResume, submitCareerApplication);
+// Submission route (User Auth Required)
+router.post("/apply", requireAuth, uploadCareerResume, submitCareerApplication);
 
 // Admin-only management routes
 router.get("/responses", requireAuth, requireRole("admin"), getAllCareerResponses);

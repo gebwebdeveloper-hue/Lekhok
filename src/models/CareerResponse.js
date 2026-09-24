@@ -28,6 +28,11 @@ const careerResponseSchema = new mongoose.Schema(
       required: [true, "State is required"],
       trim: true,
     },
+    district: {
+      type: String,
+      default: "",
+      trim: true,
+    },
     hometown: {
       type: String,
       required: [true, "Hometown is required"],

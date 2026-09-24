@@ -13,6 +13,7 @@ export const submitCareerApplication = asyncHandler(async (req, res) => {
     number,
     email,
     state,
+    district,
     hometown,
     pin,
     address,
@@ -85,6 +86,7 @@ export const submitCareerApplication = asyncHandler(async (req, res) => {
     number: cleanNumber,
     email: email.trim().toLowerCase(),
     state: state.trim(),
+    district: district?.trim() || "",
     hometown: hometown.trim(),
     pin: cleanPin,
     address: address.trim(),
@@ -128,7 +130,7 @@ export const submitCareerApplication = asyncHandler(async (req, res) => {
           </tr>
           <tr style="border-bottom:1px solid rgba(255,255,255,0.1);">
             <td style="padding:10px 0;font-weight:bold;color:#38bdf8;">HOMETOWN / STATE</td>
-            <td style="padding:10px 0;">${application.hometown}, ${application.state} (PIN: ${application.pin})</td>
+            <td style="padding:10px 0;">${application.hometown}${application.district ? ", " + application.district : ""}, ${application.state} (PIN: ${application.pin})</td>
           </tr>
           <tr style="border-bottom:1px solid rgba(255,255,255,0.1);">
             <td style="padding:10px 0;font-weight:bold;color:#38bdf8;">ADDRESS</td>
@@ -231,6 +233,7 @@ export const getAllCareerResponses = asyncHandler(async (req, res) => {
       { number: { $regex: s, $options: "i" } },
       { email: { $regex: s, $options: "i" } },
       { hometown: { $regex: s, $options: "i" } },
+      { district: { $regex: s, $options: "i" } },
       { state: { $regex: s, $options: "i" } },
     ];
   }
@@ -359,6 +362,7 @@ export const exportCareerResponsesCsv = asyncHandler(async (_req, res) => {
     "Phone Number",
     "Mail ID",
     "Hometown",
+    "District",
     "State",
     "PIN",
     "Address",
@@ -383,6 +387,7 @@ export const exportCareerResponsesCsv = asyncHandler(async (_req, res) => {
     escapeCsv(item.number),
     escapeCsv(item.email),
     escapeCsv(item.hometown),
+    escapeCsv(item.district || ""),
     escapeCsv(item.state),
     escapeCsv(item.pin),
     escapeCsv(item.address),

@@ -15,6 +15,7 @@ const storage = multer.diskStorage({
     if (file.fieldname === "cover") folder = "covers";
     if (file.fieldname === "previewImages") folder = "previews";
     if (["previewPdf", "pdf", "document", "libraryCardPdf"].includes(file.fieldname)) folder = "pdfs";
+    if (["resume", "resumePdf", "resumeFile"].includes(file.fieldname)) folder = "resumes";
     if (file.fieldname === "paymentScreenshot") folder = "payments";
     if (file.fieldname === "thumbnail") folder = "authors";
     if (file.fieldname === "cafeImage" || file.fieldname === "image") folder = "cafe-menu";
@@ -59,3 +60,26 @@ export const bookUpload = upload.fields([
 export const paymentUpload = upload.single("paymentScreenshot");
 export const libraryCardPdfUpload = upload.single("libraryCardPdf");
 export const cafeImageUpload = upload.single("cafeImage");
+
+const careerResumeMulter = multer({
+  storage,
+  limits: { fileSize: 15 * 1024 * 1024, files: 1 },
+  fileFilter(_req, file, cb) {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const isPdf = ext === ".pdf" || file.mimetype === "application/pdf" || file.mimetype === "application/x-pdf";
+    if (!isPdf) {
+      return cb(new ApiError(400, "Only PDF files (.pdf) are allowed for resume upload."));
+    }
+    cb(null, true);
+  }
+}).single("resume");
+
+export function uploadCareerResume(req, res, next) {
+  careerResumeMulter(req, res, (err) => {
+    if (!err) return next();
+    if (err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE") {
+      return next(new ApiError(400, "Resume PDF file size must be under 15MB."));
+    }
+    return next(err);
+  });
+}

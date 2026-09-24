@@ -7,11 +7,12 @@ import {
   exportCareerResponsesCsv,
 } from "../controllers/career.controller.js";
 import { requireAuth, requireRole } from "../middlewares/auth.middleware.js";
+import { uploadCareerResume } from "../middlewares/upload.middleware.js";
 
 const router = Router();
 
 // Public submission route
-router.post("/apply", submitCareerApplication);
+router.post("/apply", uploadCareerResume, submitCareerApplication);
 
 // Admin-only management routes
 router.get("/responses", requireAuth, requireRole("admin"), getAllCareerResponses);

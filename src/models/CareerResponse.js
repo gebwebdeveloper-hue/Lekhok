@@ -55,7 +55,7 @@ const careerResponseSchema = new mongoose.Schema(
     },
     experience: {
       type: String,
-      default: "",
+      required: [true, "Experience / Bio is required"],
       trim: true,
     },
     portfolioUrl: {
@@ -67,6 +67,14 @@ const careerResponseSchema = new mongoose.Schema(
       type: String,
       default: "",
       trim: true,
+    },
+    resumeFile: {
+      url: { type: String, default: "" },
+      publicId: { type: String, default: "" },
+      storage: { type: String, enum: ["local", "cloudinary", "s3", "external"], default: "local" },
+      originalName: { type: String, default: "" },
+      size: { type: Number, default: 0 },
+      mimeType: { type: String, default: "" },
     },
     status: {
       type: String,

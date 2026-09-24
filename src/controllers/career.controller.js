@@ -1,8 +1,10 @@
+import fs from "fs";
 import { CareerResponse } from "../models/CareerResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../middlewares/error.middleware.js";
 import { env } from "../config/env.js";
 import { sendEmailViaResend } from "../services/mail.service.js";
+import { persistUploadedFile } from "../services/storage.service.js";
 
 // 1. Submit Career Application (Public)
 export const submitCareerApplication = asyncHandler(async (req, res) => {
@@ -17,7 +19,6 @@ export const submitCareerApplication = asyncHandler(async (req, res) => {
     role,
     experience,
     portfolioUrl,
-    resumeUrl,
   } = req.body;
 
   if (!name?.trim()) {
@@ -54,6 +55,30 @@ export const submitCareerApplication = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Please select the role you want to join as.");
   }
 
+  if (!experience?.trim()) {
+    throw new ApiError(400, "Brief Experience / Reason to join is required.");
+  }
+
+  if (!req.file && !req.body.resumeUrl) {
+    throw new ApiError(400, "Resume PDF file is mandatory. Please upload your resume in PDF format.");
+  }
+
+  let resumeFileObj = undefined;
+  let finalResumeUrl = req.body.resumeUrl?.trim() || "";
+  let resumeAttachmentContent = null;
+
+  if (req.file) {
+    if (fs.existsSync(req.file.path)) {
+      try {
+        resumeAttachmentContent = fs.readFileSync(req.file.path).toString("base64");
+      } catch (readErr) {
+        console.warn("[Career Application] Failed to read resume file buffer:", readErr);
+      }
+    }
+    resumeFileObj = await persistUploadedFile(req.file, "resumes", "auto");
+    finalResumeUrl = resumeFileObj?.url || "";
+  }
+
   const application = await CareerResponse.create({
     name: name.trim(),
     number: cleanNumber,
@@ -63,15 +88,20 @@ export const submitCareerApplication = asyncHandler(async (req, res) => {
     pin: cleanPin,
     address: address.trim(),
     role: role.trim(),
-    experience: experience?.trim() || "",
+    experience: experience.trim(),
     portfolioUrl: portfolioUrl?.trim() || "",
-    resumeUrl: resumeUrl?.trim() || "",
+    resumeUrl: finalResumeUrl,
+    resumeFile: resumeFileObj,
     status: "Pending",
   });
 
   // Async notifications via Resend (non-blocking)
   try {
     const adminEmails = env.adminEmails || ["lekhok.tripura@gmail.com"];
+    const serverOrigin = env.siteUrl || "https://www.lekhoktripura.in";
+    const resumeFullUrl = finalResumeUrl.startsWith("http")
+      ? finalResumeUrl
+      : `${serverOrigin}${finalResumeUrl}`;
 
     const adminHtml = `
       <div style="font-family:Arial,sans-serif;background:#0b0f17;color:#ffffff;padding:28px;border-radius:14px;max-width:640px;">
@@ -104,6 +134,14 @@ export const submitCareerApplication = asyncHandler(async (req, res) => {
             <td style="padding:10px 0;">${application.address}</td>
           </tr>
           ${
+            finalResumeUrl
+              ? `<tr style="border-bottom:1px solid rgba(255,255,255,0.1);">
+                  <td style="padding:10px 0;font-weight:bold;color:#38bdf8;">RESUME (PDF)</td>
+                  <td style="padding:10px 0;"><a href="${resumeFullUrl}" target="_blank" style="color:#38bdf8;font-weight:bold;text-decoration:underline;">📄 Download / View Attached PDF</a></td>
+                </tr>`
+              : ""
+          }
+          ${
             application.portfolioUrl
               ? `<tr style="border-bottom:1px solid rgba(255,255,255,0.1);">
                   <td style="padding:10px 0;font-weight:bold;color:#38bdf8;">PORTFOLIO / LINK</td>
@@ -126,11 +164,20 @@ export const submitCareerApplication = asyncHandler(async (req, res) => {
     `;
 
     if (env.resendApiKey) {
+      const resendAttachments = [];
+      if (resumeAttachmentContent && req.file?.originalname) {
+        resendAttachments.push({
+          filename: req.file.originalname,
+          content: resumeAttachmentContent,
+        });
+      }
+
       await sendEmailViaResend({
         to: adminEmails,
         subject: `[Career Application] ${application.name} applied for "${application.role}"`,
         html: adminHtml,
-        text: `New career application from ${application.name} (${application.number}) for ${application.role}.`
+        text: `New career application from ${application.name} (${application.number}) for ${application.role}.\nResume: ${resumeFullUrl}`,
+        attachments: resendAttachments.length ? resendAttachments : undefined,
       }).catch((e) => console.error("[Career Email] Admin alert error:", e.message));
 
       const candidateHtml = `
@@ -138,7 +185,7 @@ export const submitCareerApplication = asyncHandler(async (req, res) => {
           <h2 style="color:#38bdf8;margin-top:0;">Lekhok Tripura Careers</h2>
           <p>Dear <strong>${application.name}</strong>,</p>
           <p>Thank you for your interest in joining <strong>Lekhok Tripura</strong> for the role of <strong>${application.role}</strong>.</p>
-          <p>We have successfully received your application. Our recruitment team will review your profile and reach out if your background matches our requirements.</p>
+          <p>We have successfully received your application along with your submitted resume. Our recruitment team will review your profile and reach out if your background matches our requirements.</p>
           <p>Best wishes,</p>
           <p style="color:#94a3b8;font-size:13px;">Warm Regards,<br/><strong style="color:#ffffff;">Team Lekhok Tripura</strong><br/>Tripura, India</p>
         </div>
@@ -314,6 +361,7 @@ export const exportCareerResponsesCsv = asyncHandler(async (_req, res) => {
     "State",
     "PIN",
     "Address",
+    "Resume URL",
     "Portfolio URL",
     "Experience / Bio",
     "Status",
@@ -337,6 +385,7 @@ export const exportCareerResponsesCsv = asyncHandler(async (_req, res) => {
     escapeCsv(item.state),
     escapeCsv(item.pin),
     escapeCsv(item.address),
+    escapeCsv(item.resumeUrl || item.resumeFile?.url || ""),
     escapeCsv(item.portfolioUrl || ""),
     escapeCsv(item.experience || ""),
     escapeCsv(item.status),
